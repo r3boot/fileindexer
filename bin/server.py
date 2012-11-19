@@ -1,10 +1,11 @@
 #!/usr/bin/env python
 
 import argparse
-import base64
 import bottle
+import datetime
 import json
 import logging
+import os
 import pymongo
 import sys
 
@@ -76,11 +77,13 @@ class Files(MongoAPI):
         MongoAPI.__init__(self, logger, 'files')
         self.__l = logger
 
-    def get(self, q):
-        return self.collection.find(q)
+    def get(self, path):
+        result = self.collection.find({'path': path})
+        return 'path' in result
 
     def add(self, meta):
-        if not self.get({'path_sha1': meta['path_sha1']}):
+        if not self.get(meta['path']):
+            meta['last_modified'] = datetime.datetime.utcnow()
             self.collection.save(meta)
             self.__l.debug('%s stored' % meta['path'])
             return True
@@ -101,12 +104,12 @@ class Config(MongoAPI):
         cfg = self.get_config()
         if not cfg:
             self.__l.debug('No configuration found')
-            return False
+            return None
 
         if item in cfg.keys():
             return cfg[item]
         else:
-            return False
+            return None
 
     def __setitem__(self, item, value):
         cfg = self.get_config()
@@ -116,6 +119,7 @@ class Config(MongoAPI):
 
         cfg[item] = value
         self.collection.save(cfg)
+        return True
 
     def get_config(self):
         self.__l.debug('Trying to retrieve configuration')
@@ -172,33 +176,94 @@ class Config(MongoAPI):
 
 class API:
     def __init__(self, logger, listen_ip, listen_port):
+        self.__l = logger
         self.__listen_ip = listen_ip
         self.__listen_port = listen_port
         self.config = Config(logger)
         self.files = Files(logger)
+        bottle.TEMPLATE_PATH.append('/people/r3boot/fileindexer/templates')
+    """
+    def dispatcher(self):
+        response = {}
+        request = bottle.request.body.read()
+        print('request: ' + request)
+        if not isinstance(request, dict):
+            response['result'] = False
+            response['error'] = 'request is not a dictionary'
+        elif not 'method' in request:
+            response['result'] = False
+            response['error'] = 'no method requested'
 
-    def __serialize(self, data):
-        return base64.b64encode(json.dumps(data))
+        elif request['method'] == 'ping':
+            response['result'] = True
+            response['error'] = 'pong'
 
-    def __deserialize(self, data):
-        return json.loads(base64.b64decode(data))
+        elif request['method'] == 'config.get':
+            if 'item' in request:
+                value = self.config[request['item']]
+                if value != None:
+                    response['result'] = True
+                    response['value'] = value
+                else:
+                    response['result'] = False
+                    response['error'] = 'config.get[%s] not found' % request['item']
+            else:
+                response['result'] = False
+                response['error'] = 'config.get requires an item'
 
-    def ping(self):
-        return self.__serialize('pong')
+        elif request['method'] == 'config.set':
+            if not 'item' in request:
+                response['result'] = False
+                response['error'] = 'config.set requires an item'
+            elif not 'value' in request:
+                response['result'] = False
+                response['error'] = 'config.set requires a value'
+            else:
+                self.config[request['item']] = request['value']
+                response['result'] = True
 
-    def cfg_get(self, item):
-        return self.__serialize(self.config[item])
-
-    def cfg_set(self, item, value):
-        self.config[item] = self.__deserialize(value)
-        return self.__serialize('ok')
-
-    def add_file(self, data):
-        result = self.files.add(self.__deserialize(data))
-        if result:
-            return self.__serialize('ok')
+        elif request['method'] == 'file.add':
+            if not 'meta' in request:
+                response['result'] = False
+                response['error'] = 'no metadata defined'
+            elif not 'path' in request['meta']:
+                response['result'] = False
+                response['error'] = 'no path defined'
+            elif not 'parent' in request['meta']:
+                response['result'] = False
+                response['error'] = 'no parent defined'
+            else:
+                result = self.files.add(request['meta'])
+                response['result'] = result
+                if not result:
+                    response['error'] = 'failed to add'
         else:
-            return self.__serialize('failed')
+            response['result'] = False
+            response['error'] = 'unknown request'
+
+        self.__l.debug(response)
+        #self.__l.debug(self.__serialize(response))
+        #bottle.response.set_header('Content-Type', 'application/x-www-form-urlencoded')
+        #return {'result': True}
+        return response
+    """
+    def webapp(self):
+        return bottle.jinja2_template('index.html')
+
+    def serve_js(self, filename):
+        if os.path.exists('/people/r3boot/fileindexer/js/%s' % filename):
+            return open('/people/r3boot/fileindexer/js/%s' % filename, 'r').read()
+
+    #def options(self):
+    #    bottle.response.status = 200
+    #    bottle.response.add_header('Allow', 'GET, POST, OPTIONS')
+    #    bottle.response.add_header('Access-Control-Allow-Origin', '*')
+    #    bottle.response.add_header('Access-Control-Allow-Headers', 'X-Request, X-Requested-With')
+    #    bottle.response.add_header('Content-Length', '0')
+    #    return {}
+
+    def get_files(self):
+        return {}
 
     def run(self):
         bottle.run(host=self.__listen_ip, port=self.__listen_port)
@@ -231,10 +296,10 @@ def main():
     logger.debug('logging at %s' % ll2str[log_level])
 
     api = API(logger, args.listen_ip, args.listen_port)
-    bottle.route('/ping')(api.ping)
-    bottle.route('/cfg/get/:item')(api.cfg_get)
-    bottle.route('/cfg/set/:item/:value')(api.cfg_set)
-    bottle.route('/file/add/:data')(api.add_file)
+    bottle.route('/', method='GET')(api.webapp)
+    bottle.route('/js/:filename', method='GET')(api.serve_js)
+    #bottle.route('/files', method='OPTIONS')(api.options)
+    bottle.route('/files', method='GET')(api.get_files)
     api.run()
 
     return

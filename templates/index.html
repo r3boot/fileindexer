@@ -1,0 +1,49 @@
+<html>
+<head>
+<title>File Indexer</title>
+<script type="text/javascript" src="/js/mootools-core-1.4.5.js"></script>
+<script type="text/javascript">
+window.addEvent('domready', function() {
+	$('b_submit').addEvent('click', function(event) {
+		event.stop();
+		var request = new Request.JSON({
+			method: 'get',
+			url: '/files',
+			data: {},
+			onRequest: function() {
+				document.getElementById("content").innerHTML = "Sending request to API";
+			},
+			onComplete: function(response) {
+				alert("response: "+response);
+				document.getElementById("content").innerHTML = "Request returned from API:" + response;
+			},
+		}).send();
+	});
+	$('b_reset').addEvent('click', function(event) {
+		alert('reset');
+	});
+});
+</script>
+
+<script type="text/javascript">
+
+function clear_search_input() {
+	document.getElementById("q").innerHTML = "";
+}
+function load_content() {
+	document.getElementById("content").innerHTML = "Please wait while fetching results";
+}
+</script>
+</head>
+<body onload="load_content()">
+<div id="body">
+<div id="header">
+<input type="text" id="q" value="Enter a search query" onclick="if(!this._haschanged){this.value=''};this._haschanged=true;" />
+<button id="b_submit">go</button>
+<button id="b_reset">reset</button>
+</div>
+<div id="content">
+</div>
+</div>
+</body>
+</html>

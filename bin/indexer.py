@@ -2,7 +2,6 @@
 
 import argparse
 import base64
-import hashlib
 import json
 import logging
 import mimetypes
@@ -35,14 +34,15 @@ class Indexer(threading.Thread):
 
     def run(self):
         self.index(self.path)
+        self.__l.debug('Finished indexing %s' % self.path)
 
     def index(self, path):
-        for (root, dirs, files) in os.walk(path):
+        for (parent, dirs, files) in os.walk(path):
             for f in files:
-                full_path = '%s/%s' % (root, f)
-                self.add(full_path.encode('UTF-8'))
+                full_path = '%s/%s' % (parent, f)
+                self.add(parent, full_path.encode('UTF-8'))
 
-    def add(self, path):
+    def add(self, parent, path):
         meta = {}
         try:
             stat = os.stat(path)
@@ -51,7 +51,7 @@ class Indexer(threading.Thread):
             return
 
         meta['path'] = path
-        meta['path_sha1'] = hashlib.sha1(path).hexdigest()
+        meta['parent'] = parent
         meta['mode'] = stat.st_mode
         meta['uid'] = stat.st_uid
         meta['gid'] = stat.st_gid
@@ -69,8 +69,7 @@ class Indexer(threading.Thread):
 class API():
     def __init__(self, logger, host, port):
         self.__l = logger
-        self.__host = host
-        self.__port = port
+        self.__uri = 'http://%s:%s/api' % (host, port)
 
     def __serialize(self, data):
         return base64.b64encode(json.dumps(data))
@@ -78,40 +77,65 @@ class API():
     def __deserialize(self, data):
         return json.loads(base64.b64decode(data))
 
-    def __get_url(self, cmd, item=None, value=None):
-        if item and value:
-            return 'http://%s:%s/%s/%s/%s' % (self.__host, self.__port, cmd, item, value)
-        elif item:
-            return 'http://%s:%s/%s/%s' % (self.__host, self.__port, cmd, item)
-        else:
-            return 'http://%s:%s/%s' % (self.__host, self.__port, cmd)
+    def __fetch(self, request):
+        try:
+            r = requests.get('%s/%s' % (self.__uri, self.__serialize(request)))
+        except requests.exceptions.ConnectionError, e:
+            response = {
+                'result': False,
+                'error':  e
+            }
+            self.__l.error(e)
+            return response
 
-    def __fetch(self, url):
-        r = requests.get(url)
         if r.status_code == 200:
             return self.__deserialize(r.text)
 
     def is_alive(self):
-        url = self.__get_url('ping')
-        #data = self.__deserialize(self.__fetch(url))
-        data = self.__fetch(url)
-        return data == 'pong'
+        request = {'method': 'ping'}
+        response = self.__fetch(request)
+        return response['result']
 
     def cfg_get(self, item):
-        url = self.__get_url('cfg/get', item)
-        data = self.__fetch(url)
-        return data
+        request = {
+            'method': 'config.get',
+            'item':   item
+        }
+        response = self.__fetch(request)
+        if response['result']:
+            self.__l.debug('config.get[%s] = %s' % (item, response['value']))
+            return response['value']
+        else:
+            self.__l.error(response['error'])
+            return None
 
     def cfg_set(self, item, value):
-        url = self.__get_url('cfg/set', item, self.__serialize(value))
-        data = self.__fetch(url)
-        return data
+        request = {
+            'method': 'config.set',
+            'item':   item,
+            'value':  value
+        }
+        response = self.__fetch(request)
+        if response['result']:
+            self.__l.debug('config.set[%s] = %s' % (item, value))
+        else:
+            self.__l.error(response['error'])
+
+        return response
 
     def add_file(self, meta):
-        url = self.__get_url('file/add', self.__serialize(meta))
-        data = self.__fetch(url)
-        if data:
-            return data
+        request = {
+            'method': 'file.add',
+            'meta':   meta
+        }
+        response = self.__fetch(request)
+        if not response:
+            self.__l.error(meta)
+            self.__l.error('no response found')
+        elif not response['result']:
+            self.__l.error(response['error'])
+
+        return response
 
 def main():
     parser = argparse.ArgumentParser(description=__description__)
@@ -128,8 +152,8 @@ def main():
     parser.add_argument('--list-paths', dest='list_paths', action='store_true',
         default=False, help='Display all indexed paths')
 
-    parser.add_argument('--index', dest='index', action='store_true',
-        default=False, help='Index all paths')
+    parser.add_argument('--update', dest='update', action='store_true',
+        default=False, help='(Re)index all paths')
 
     args = parser.parse_args()
 
@@ -175,7 +199,7 @@ def main():
         if not result:
             logger.error('Failed to set config.paths')
             return 1
-    elif args.index:
+    elif args.update:
         mimetypes.init()
         indexers = []
         paths = api.cfg_get('paths')
