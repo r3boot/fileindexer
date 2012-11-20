@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import argparse
+import base64
 import bottle
 import datetime
 import json
@@ -86,7 +87,7 @@ class Files(MongoAPI):
             meta['last_modified'] = datetime.datetime.utcnow()
             self.collection.save(meta)
             self.__l.debug('%s stored' % meta['path'])
-            return True
+            return meta['_id']
         self.__l.debug('%s already in store' % meta['path'])
 
 class Config(MongoAPI):
@@ -101,7 +102,7 @@ class Config(MongoAPI):
         self.__cfg = False
 
     def __getitem__(self, item):
-        cfg = self.get_config()
+        cfg = self.__get_config()
         if not cfg:
             self.__l.debug('No configuration found')
             return None
@@ -112,7 +113,7 @@ class Config(MongoAPI):
             return None
 
     def __setitem__(self, item, value):
-        cfg = self.get_config()
+        cfg = self.__get_config()
         if not cfg:
             self.__l.debug('No configuration found')
             return False
@@ -121,7 +122,7 @@ class Config(MongoAPI):
         self.collection.save(cfg)
         return True
 
-    def get_config(self):
+    def __get_config(self):
         self.__l.debug('Trying to retrieve configuration')
         cfg = self.collection.find_one({'cfgclass': self.__cfgclass})
         if cfg:
@@ -133,6 +134,11 @@ class Config(MongoAPI):
             self.__l.debug('Failed to find configuration, creating defaults')
             self.set_defaults()
 
+        return cfg
+
+    def get_config(self):
+        cfg = self.__get_config()
+        del(cfg['_id'])
         return cfg
 
     def validate(self, cfg):
@@ -175,6 +181,8 @@ class Config(MongoAPI):
         self.collection.save(cfg)
 
 class API:
+    __valid_config_items = ['paths']
+
     def __init__(self, logger, listen_ip, listen_port):
         self.__l = logger
         self.__listen_ip = listen_ip
@@ -182,71 +190,10 @@ class API:
         self.config = Config(logger)
         self.files = Files(logger)
         bottle.TEMPLATE_PATH.append('/people/r3boot/fileindexer/templates')
-    """
-    def dispatcher(self):
-        response = {}
-        request = bottle.request.body.read()
-        print('request: ' + request)
-        if not isinstance(request, dict):
-            response['result'] = False
-            response['error'] = 'request is not a dictionary'
-        elif not 'method' in request:
-            response['result'] = False
-            response['error'] = 'no method requested'
 
-        elif request['method'] == 'ping':
-            response['result'] = True
-            response['error'] = 'pong'
+    def __deserialize(self, data):
+        return json.loads(base64.b64decode(data))
 
-        elif request['method'] == 'config.get':
-            if 'item' in request:
-                value = self.config[request['item']]
-                if value != None:
-                    response['result'] = True
-                    response['value'] = value
-                else:
-                    response['result'] = False
-                    response['error'] = 'config.get[%s] not found' % request['item']
-            else:
-                response['result'] = False
-                response['error'] = 'config.get requires an item'
-
-        elif request['method'] == 'config.set':
-            if not 'item' in request:
-                response['result'] = False
-                response['error'] = 'config.set requires an item'
-            elif not 'value' in request:
-                response['result'] = False
-                response['error'] = 'config.set requires a value'
-            else:
-                self.config[request['item']] = request['value']
-                response['result'] = True
-
-        elif request['method'] == 'file.add':
-            if not 'meta' in request:
-                response['result'] = False
-                response['error'] = 'no metadata defined'
-            elif not 'path' in request['meta']:
-                response['result'] = False
-                response['error'] = 'no path defined'
-            elif not 'parent' in request['meta']:
-                response['result'] = False
-                response['error'] = 'no parent defined'
-            else:
-                result = self.files.add(request['meta'])
-                response['result'] = result
-                if not result:
-                    response['error'] = 'failed to add'
-        else:
-            response['result'] = False
-            response['error'] = 'unknown request'
-
-        self.__l.debug(response)
-        #self.__l.debug(self.__serialize(response))
-        #bottle.response.set_header('Content-Type', 'application/x-www-form-urlencoded')
-        #return {'result': True}
-        return response
-    """
     def webapp(self):
         return bottle.jinja2_template('index.html')
 
@@ -254,16 +201,45 @@ class API:
         if os.path.exists('/people/r3boot/fileindexer/js/%s' % filename):
             return open('/people/r3boot/fileindexer/js/%s' % filename, 'r').read()
 
-    #def options(self):
-    #    bottle.response.status = 200
-    #    bottle.response.add_header('Allow', 'GET, POST, OPTIONS')
-    #    bottle.response.add_header('Access-Control-Allow-Origin', '*')
-    #    bottle.response.add_header('Access-Control-Allow-Headers', 'X-Request, X-Requested-With')
-    #    bottle.response.add_header('Content-Length', '0')
-    #    return {}
+    def ping(self):
+        return {'result': True, 'message': 'pong'}
+
+    def get_config(self):
+        config = self.config.get_config()
+        if config:
+            return {'result': True, 'config': config}
+        else:
+            return {'result': False, 'message': 'Failed to retrieve configuration'}
+
+    def set_config(self, key):
+        if key in self.__valid_config_items:
+            request = self.__deserialize(bottle.request.body.readline())
+            if 'value' in request:
+                self.config[key] = request['value']
+                return {'result': True, key: request['value']}
+            else:
+                return {'result': False, 'message': 'Failed to set configuration item'}
+        else:
+            return {'result': False, 'message': 'Not a valid configuration item'}
 
     def get_files(self):
-        return {}
+        try:
+            request = self.__deserialize(bottle.request.body.readline())
+        except ValueError:
+            request = {}
+        config = self.config.get_config()
+        if 'root' in request:
+            return {'result': False, 'message': 'FNI'}
+        else:
+            return {'result': True, 'files': config['paths']}
+
+    def add_file(self):
+        request = self.__deserialize(bottle.request.body.readline())
+        if 'meta' in request:
+            _id = self.files.add(request['meta'])
+            return {'result': True, '_id': _id}
+        else:
+            return {'result': False, 'message': 'Failed to retrieve metadata'}
 
     def run(self):
         bottle.run(host=self.__listen_ip, port=self.__listen_port)
@@ -296,10 +272,17 @@ def main():
     logger.debug('logging at %s' % ll2str[log_level])
 
     api = API(logger, args.listen_ip, args.listen_port)
+    ## Webapp
     bottle.route('/', method='GET')(api.webapp)
     bottle.route('/js/:filename', method='GET')(api.serve_js)
-    #bottle.route('/files', method='OPTIONS')(api.options)
+
+    ## API
+    bottle.route('/ping', method='GET')(api.ping)
+    bottle.route('/config', method='GET')(api.get_config)
+    bottle.route('/config/:key', method='POST')(api.set_config)
     bottle.route('/files', method='GET')(api.get_files)
+    bottle.route('/files', method='POST')(api.add_file)
+    bottle.TEMPLATE_PATH.append('/people/r3boot/fileindexer/templates')
     api.run()
 
     return

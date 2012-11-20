@@ -4,6 +4,32 @@
 <script type="text/javascript" src="/js/mootools-core-1.4.5.js"></script>
 <script type="text/javascript">
 window.addEvent('domready', function() {
+	$('page').addEvent('domready', function(event) {
+		var request = new Request.JSON({
+			method: 'get',
+			url: '/files',
+			data: {},
+			onRequest: function() {
+				document.getElementById('content').innerHTML = 'Checking for API availability'
+			},
+			onComplete: function(response) {
+				var content = "<table id='file_results'>";
+
+				for (var i=0; i < response['files'].length; i++) {
+					content += "<tr><td>"
+					content += "<a href='/files/"+response['files'][i]+"' />";
+					content += response['files'][i]
+					content += "</a>";
+					content += "</td></tr>";
+				}
+				content += "</table>";
+				document.getElementById('content').innerHTML = content;
+			},
+			onFailure: function(response) {
+				document.getElementById('content').innerHTML = 'API unavailable'
+			}
+		}).send();
+	});
 	$('b_submit').addEvent('click', function(event) {
 		event.stop();
 		var request = new Request.JSON({
@@ -16,7 +42,7 @@ window.addEvent('domready', function() {
 			onComplete: function(response) {
 				alert("response: "+response);
 				document.getElementById("content").innerHTML = "Request returned from API:" + response;
-			},
+			}
 		}).send();
 	});
 	$('b_reset').addEvent('click', function(event) {
@@ -25,17 +51,8 @@ window.addEvent('domready', function() {
 });
 </script>
 
-<script type="text/javascript">
-
-function clear_search_input() {
-	document.getElementById("q").innerHTML = "";
-}
-function load_content() {
-	document.getElementById("content").innerHTML = "Please wait while fetching results";
-}
-</script>
 </head>
-<body onload="load_content()">
+<body id='page'>
 <div id="body">
 <div id="header">
 <input type="text" id="q" value="Enter a search query" onclick="if(!this._haschanged){this.value=''};this._haschanged=true;" />

@@ -2,6 +2,8 @@
 
 import argparse
 import base64
+import datetime
+import hashlib
 import json
 import logging
 import mimetypes
@@ -31,16 +33,22 @@ class Indexer(threading.Thread):
         self.api = api
         self.path = path
         self.setDaemon(True)
+        self.__t_start = datetime.datetime.now()
 
     def run(self):
-        self.index(self.path)
-        self.__l.debug('Finished indexing %s' % self.path)
+        num_files = self.index(self.path)
+        t_end = datetime.datetime.now()
+        t_total = t_end - self.__t_start
+        self.__l.debug('Finished indexing %s in %s (%s files)' % (self.path, t_total, num_files))
 
     def index(self, path):
+        num_files = 0
         for (parent, dirs, files) in os.walk(path):
             for f in files:
+                num_files += 1
                 full_path = '%s/%s' % (parent, f)
                 self.add(parent, full_path.encode('UTF-8'))
+        return num_files
 
     def add(self, parent, path):
         meta = {}
@@ -51,6 +59,7 @@ class Indexer(threading.Thread):
             return
 
         meta['path'] = path
+        meta['_id'] = hashlib.sha1(path).hexdigest()
         meta['parent'] = parent
         meta['mode'] = stat.st_mode
         meta['uid'] = stat.st_uid
@@ -69,73 +78,59 @@ class Indexer(threading.Thread):
 class API():
     def __init__(self, logger, host, port):
         self.__l = logger
-        self.__uri = 'http://%s:%s/api' % (host, port)
+        self.__uri = 'http://%s:%s' % (host, port)
+        self.__s = requests.session()
 
     def __serialize(self, data):
         return base64.b64encode(json.dumps(data))
 
-    def __deserialize(self, data):
-        return json.loads(base64.b64decode(data))
-
-    def __fetch(self, request):
+    def __request(self, method, path, payload={}):
+        response = {}
+        url = self.__uri + path
+        if payload:
+            payload = self.__serialize(payload)
         try:
-            r = requests.get('%s/%s' % (self.__uri, self.__serialize(request)))
+            if method == 'get':
+                r = self.__s.get(url)
+            elif method == 'post':
+                r = self.__s.post(url, data=payload)
+            else:
+                self.__l.error('Invalid request method')
         except requests.exceptions.ConnectionError, e:
-            response = {
-                'result': False,
-                'error':  e
-            }
+            r = False
+            response['result'] = False
+            response['message'] = e
             self.__l.error(e)
-            return response
+        finally:
+            if r and r.status_code == 200:
+                response = r.json
+            else:
+                response['result'] = False
+                response['message'] = 'Request failed'
 
-        if r.status_code == 200:
-            return self.__deserialize(r.text)
+        return response
 
-    def is_alive(self):
-        request = {'method': 'ping'}
-        response = self.__fetch(request)
+    def ping(self):
+        response = self.__request(method='get', path='/ping')
         return response['result']
 
-    def cfg_get(self, item):
-        request = {
-            'method': 'config.get',
-            'item':   item
-        }
-        response = self.__fetch(request)
+    def get_config(self):
+        response = self.__request(method='get', path='/config')
         if response['result']:
-            self.__l.debug('config.get[%s] = %s' % (item, response['value']))
-            return response['value']
+            return response['config']
         else:
-            self.__l.error(response['error'])
-            return None
+            self.__l.error(response['message'])
+            return {}
 
-    def cfg_set(self, item, value):
-        request = {
-            'method': 'config.set',
-            'item':   item,
-            'value':  value
-        }
-        response = self.__fetch(request)
-        if response['result']:
-            self.__l.debug('config.set[%s] = %s' % (item, value))
-        else:
-            self.__l.error(response['error'])
-
-        return response
+    def set_config(self, key, value):
+        payload = {'value': value}
+        response = self.__request(method='post', path='/config/%s' % key, payload=payload)
+        return response['result']
 
     def add_file(self, meta):
-        request = {
-            'method': 'file.add',
-            'meta':   meta
-        }
-        response = self.__fetch(request)
-        if not response:
-            self.__l.error(meta)
-            self.__l.error('no response found')
-        elif not response['result']:
-            self.__l.error(response['error'])
-
-        return response
+        payload = {'meta': meta}
+        response = self.__request(method='post', path='/files', payload=payload)
+        return response['result']
 
 def main():
     parser = argparse.ArgumentParser(description=__description__)
@@ -149,6 +144,8 @@ def main():
 
     parser.add_argument('--add-path', dest='add_path', action='store',
         default=False, help='Add path to index')
+    parser.add_argument('--del-path', dest='del_path', action='store',
+        default=False, help='Remove path from index')
     parser.add_argument('--list-paths', dest='list_paths', action='store_true',
         default=False, help='Display all indexed paths')
 
@@ -173,40 +170,59 @@ def main():
     logger.debug('logging at %s' % ll2str[log_level])
 
     api = API(logger, args.host, args.port)
-    if api.is_alive():
+    if api.ping():
         logger.debug('Connected to API at %s:%s' % (args.host, args.port))
     else:
         logger.debug('Failed to connect to API at %s:%s' % (args.host, args.port))
         return
 
+    config = api.get_config()
+    print(config)
+
     if args.list_paths:
-        paths = api.cfg_get('paths')
-        if not paths:
-            logger.error('No paths found')
+        if not 'paths' in config:
+            logger.error('No paths configured')
             return 1
         print('==> Indexed paths')
-        for path in api.cfg_get('paths'):
+        for path in config['paths']:
             print('* %s' % path)
     elif args.add_path:
-        paths = api.cfg_get('paths')
-        if not paths:
+        if 'paths' in config:
+            paths = config['paths']
+        else:
             paths = []
         if args.add_path in paths:
             logger.error('Path already indexed')
             return 1
         paths.append(args.add_path)
-        result = api.cfg_set('paths', paths)
+        result = api.set_config('paths', paths)
         if not result:
             logger.error('Failed to set config.paths')
             return 1
+    elif args.del_path:
+        if 'paths' in config:
+            if args.del_path in config['paths']:
+                paths = []
+                for path in config['paths']:
+                    if path == args.del_path:
+                        continue
+                    paths.append(path)
+                
+                result = api.set_config('paths', paths)
+                if not result:
+                    logger.error('Failed to set config.paths')
+                    return 1
+            else:
+                logger.error('Path no indexed')
+        else:
+            logger.error('No paths configured')
     elif args.update:
         mimetypes.init()
         indexers = []
-        paths = api.cfg_get('paths')
-        if not paths:
+        if not 'paths' in config:
             logger.error('No paths found')
             return 1
-        for path in paths:
+        for path in config['paths']:
             logger.debug('Starting thread for %s' % path)
             indexer = Indexer(logger, api, path)
             indexer.start()
