@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+from gevent import monkey; monkey.patch_all()
+
 import argparse
 import base64
 import bottle
@@ -9,6 +11,7 @@ import logging
 import os
 import pymongo
 import sys
+import uuid
 
 __description__ = 'File Indexer Daemon'
 
@@ -26,6 +29,7 @@ ll2str = {
 
 class MongoAPI():
     __dbname = 'file_indexer'
+    indexes = []
 
     def __init__(self, logger, collection_name, autoconnect=True, ):
         self.__l = logger
@@ -36,6 +40,7 @@ class MongoAPI():
 
         if autoconnect:
             self.connect()
+        self.create_indexes()
 
     def __destroy__(self):
         self.disconnect()
@@ -44,14 +49,12 @@ class MongoAPI():
         if not self.__conn:
             try:
                 self.__conn = pymongo.Connection()
-                self.__l.debug('Connected to mongodb')
             except:
                 self.__l.debug('Failed to connect to mongodb')
                 self.__conn = False
                 return
             try:
                 self.__db = self.__conn[self.__dbname]
-                self.__l.debug('Connected to db %s' % self.__dbname)
             except:
                 self.__l.debug('Failed to connect to %s' % self.__dbname)
                 self.disconnect()
@@ -73,7 +76,19 @@ class MongoAPI():
         self.collection = False
         self.__l.debug('Disconnected from mongodb')
 
+    def create_indexes(self):
+        if not self.__db:
+            self.__l.error('Not connected to mongodb')
+            return False
+        i = 0
+        if len(self.indexes) > 0:
+            for idx in self.indexes:
+                self.collection.create_index(idx)
+                i += 1
+        self.__l.debug('Created %s indexes for %s.%s' % (i, self.__dbname, self.collection_name))
+
 class Files(MongoAPI):
+    indexes = ['path']
     def __init__(self, logger):
         MongoAPI.__init__(self, logger, 'files')
         self.__l = logger
@@ -95,6 +110,7 @@ class Config(MongoAPI):
     __defaults = {
         'paths': []
     }
+    indexes = ['cfgclass']
 
     def __init__(self, logger):
         MongoAPI.__init__(self, logger, 'config')
@@ -180,6 +196,64 @@ class Config(MongoAPI):
 
         self.collection.save(cfg)
 
+class Users(MongoAPI):
+    indexes = ['username']
+    def __init__(self, logger):
+        MongoAPI.__init__(self, logger, 'users')
+        self.__l = logger
+
+    def list(self):
+        users = []
+        for user in self.collection.find():
+            users.append(user['username'])
+        return users
+
+    def get(self, username):
+        user = {}
+        user_data = self.collection.find({'_id': username})
+        for k,v in user_data[0].items():
+            user[k] = v
+        return user
+
+    def add(self, meta):
+        meta['_id'] = meta['username']
+        return self.collection.save(meta)
+
+    def remove(self, username):
+        if username in self.list():
+            self.collection.remove({'username': username})
+            return True
+
+class Servers(MongoAPI):
+    indexes = ['servername']
+    def __init__(self, logger):
+        MongoAPI.__init__(self, logger, 'servers')
+        self.__l = logger
+
+    def list(self):
+        servers = []
+        for server in self.collection.find():
+            servers.append(server['servername'])
+        return servers
+
+    def get(self, servername):
+        server = {}
+        server_data = self.collection.find({'_id': servername})
+        for k,v in server_data[0].items():
+            server[k] = v
+        return server
+
+    def add(self, meta):
+        meta['_id'] = meta['servername']
+        meta['apikey'] = str(uuid.uuid4())
+        return self.collection.save(meta)
+
+    def remove(self, servername):
+        if servername in self.list():
+            self.collection.remove({'servername': servername})
+            return True
+            
+
 class API:
     __valid_config_items = ['paths']
 
@@ -189,10 +263,14 @@ class API:
         self.__listen_port = listen_port
         self.config = Config(logger)
         self.files = Files(logger)
-        bottle.TEMPLATE_PATH.append('/people/r3boot/fileindexer/templates')
+        self.users = Users(logger)
+        self.servers = Servers(logger)
 
     def __deserialize(self, data):
         return json.loads(base64.b64decode(data))
+
+    def run(self):
+        bottle.run(host=self.__listen_ip, port=self.__listen_port, server='gevent')
 
     def webapp(self):
         return bottle.jinja2_template('index.html')
@@ -200,6 +278,10 @@ class API:
     def serve_js(self, filename):
         if os.path.exists('/people/r3boot/fileindexer/js/%s' % filename):
             return open('/people/r3boot/fileindexer/js/%s' % filename, 'r').read()
+
+    def serve_css(self, filename):
+        if os.path.exists('/people/r3boot/fileindexer/css/%s' % filename):
+            return open('/people/r3boot/fileindexer/css/%s' % filename, 'r').read()
 
     def ping(self):
         return {'result': True, 'message': 'pong'}
@@ -241,8 +323,59 @@ class API:
         else:
             return {'result': False, 'message': 'Failed to retrieve metadata'}
 
-    def run(self):
-        bottle.run(host=self.__listen_ip, port=self.__listen_port)
+    def get_users(self):
+        users = self.users.list()
+        if users:
+            return {'result': True, 'users': users}
+        else:
+            return {'result': False, 'message': 'No users found'}
+
+    def get_user(self, username):
+        user = self.users.get(username)
+        if user:
+            return {'result': True, 'user': user}
+        else:
+            return {'result': False, 'message': 'Failed to retrieve userdata'}
+
+    def add_user(self):
+        request = self.__deserialize(bottle.request.body.readline())
+        if 'user' in request:
+            return {'result': True, 'message': self.users.add(request['user'])}
+        else:
+            return {'result': False, 'message': 'No userinfo received'}
+
+    def remove_user(self, username):
+        if self.users.remove(username):
+            return {'result': True, 'message': 'User removed succesfully'}
+        else:
+            return {'result': True, 'message': 'Failed to remove user'}
+
+    def get_servers(self):
+        servers = self.servers.list()
+        if servers:
+            return {'result': True, 'servers': servers}
+        else:
+            return {'result': False, 'message': 'No servers defined'}
+
+    def get_server(self, server):
+        server = self.servers.get(server)
+        if server:
+            return {'result': True, 'server': server}
+        else:
+            return {'result': False, 'message': 'Failed to retrieve server'}
+
+    def add_server(self):
+        request = self.__deserialize(bottle.request.body.readline())
+        if 'server' in request:
+            return {'result': True, 'message': self.servers.add(request['server'])}
+        else:
+            return {'result': False, 'message': 'Failed to add server'}
+
+    def remove_server(self, server):
+        if self.servers.remove(server):
+            return {'result': True, 'message': 'Server removed successfully'}
+        else:
+            return {'result': False, 'message': 'Failed to remove server'}
 
 def main():
     parser = argparse.ArgumentParser(description=__description__)
@@ -272,16 +405,27 @@ def main():
     logger.debug('logging at %s' % ll2str[log_level])
 
     api = API(logger, args.listen_ip, args.listen_port)
+
     ## Webapp
-    bottle.route('/', method='GET')(api.webapp)
-    bottle.route('/js/:filename', method='GET')(api.serve_js)
+    bottle.route('/',                method='GET')    (api.webapp)
+    bottle.route('/js/:filename',    method='GET')    (api.serve_js)
+    bottle.route('/css/:filename',   method='GET')    (api.serve_css)
 
     ## API
-    bottle.route('/ping', method='GET')(api.ping)
-    bottle.route('/config', method='GET')(api.get_config)
-    bottle.route('/config/:key', method='POST')(api.set_config)
-    bottle.route('/files', method='GET')(api.get_files)
-    bottle.route('/files', method='POST')(api.add_file)
+    bottle.route('/ping',            method='GET')    (api.ping)
+    bottle.route('/config',          method='GET')    (api.get_config)
+    bottle.route('/config/:key',     method='POST')   (api.set_config)
+    bottle.route('/users',           method='GET')    (api.get_users)
+    bottle.route('/users',           method='POST')   (api.add_user)
+    bottle.route('/users/:username', method='GET')    (api.get_user)
+    bottle.route('/users/:username', method='DELETE') (api.remove_user)
+    bottle.route('/servers',         method='GET')    (api.get_servers)
+    bottle.route('/servers',         method='POST')   (api.add_server)
+    bottle.route('/servers/:server', method='GET')    (api.get_server)
+    bottle.route('/servers/:server', method='DELETE') (api.remove_server)
+    bottle.route('/files',           method='GET')    (api.get_files)
+    bottle.route('/files',           method='POST')   (api.add_file)
+
     bottle.TEMPLATE_PATH.append('/people/r3boot/fileindexer/templates')
     api.run()
 

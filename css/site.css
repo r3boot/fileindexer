@@ -1,0 +1,51 @@
+#page {
+	padding: 0px;
+}
+
+#header {
+	text-align: right;
+	padding-top: 5px;
+	padding-bottom: 5px;
+	border-bottom: 1px solid #eeeeee;
+}
+
+#content {
+	height: 100%;
+	text-align: center;
+	vertical-align: middle;
+}
+
+#i_username {
+	background: #333444;
+}
+
+button.default{
+	font-family: Arial, Helvetica, sans-serif;
+	font-size: 10px;
+	color: #050505;
+	padding: 3px 3px;
+	background: -moz-linear-gradient(
+		top,
+		#fdfdfd 0%,
+		#ebebeb);
+	background: -webkit-gradient(
+		linear, left top, left bottom, 
+		from(#fdfdfd),
+		to(#ebebeb));
+	-moz-border-radius: 3px;
+	-webkit-border-radius: 3px;
+	border-radius: 3px;
+	border: 1px solid #8a8e91;
+	-moz-box-shadow:
+		0px 2px 2px rgba(000,000,000,0.1),
+		inset 0px 0px 0px rgba(255,255,255,0);
+	-webkit-box-shadow:
+		0px 2px 2px rgba(000,000,000,0.1),
+		inset 0px 0px 0px rgba(255,255,255,0);
+	box-shadow:
+		0px 2px 2px rgba(000,000,000,0.1),
+		inset 0px 0px 0px rgba(255,255,255,0);
+	text-shadow:
+		0px 0px 0px rgba(000,000,000,0),
+		0px 1px 0px rgba(255,255,255,0.5);
+}

@@ -1,66 +1,22 @@
 <html>
-<head>
-<title>File Indexer</title>
-<script type="text/javascript" src="/js/mootools-core-1.4.5.js"></script>
-<script type="text/javascript">
-window.addEvent('domready', function() {
-	$('page').addEvent('domready', function(event) {
-		var request = new Request.JSON({
-			method: 'get',
-			url: '/files',
-			data: {},
-			onRequest: function() {
-				document.getElementById('content').innerHTML = 'Checking for API availability'
-			},
-			onComplete: function(response) {
-				var content = "<table id='file_results'>";
-
-				for (var i=0; i < response['files'].length; i++) {
-					content += "<tr><td>"
-					content += "<a href='/files/"+response['files'][i]+"' />";
-					content += response['files'][i]
-					content += "</a>";
-					content += "</td></tr>";
-				}
-				content += "</table>";
-				document.getElementById('content').innerHTML = content;
-			},
-			onFailure: function(response) {
-				document.getElementById('content').innerHTML = 'API unavailable'
-			}
-		}).send();
-	});
-	$('b_submit').addEvent('click', function(event) {
-		event.stop();
-		var request = new Request.JSON({
-			method: 'get',
-			url: '/files',
-			data: {},
-			onRequest: function() {
-				document.getElementById("content").innerHTML = "Sending request to API";
-			},
-			onComplete: function(response) {
-				alert("response: "+response);
-				document.getElementById("content").innerHTML = "Request returned from API:" + response;
-			}
-		}).send();
-	});
-	$('b_reset').addEvent('click', function(event) {
-		alert('reset');
-	});
-});
-</script>
-
-</head>
-<body id='page'>
-<div id="body">
-<div id="header">
-<input type="text" id="q" value="Enter a search query" onclick="if(!this._haschanged){this.value=''};this._haschanged=true;" />
-<button id="b_submit">go</button>
-<button id="b_reset">reset</button>
-</div>
-<div id="content">
-</div>
-</div>
-</body>
+  <head>
+    <title>File Indexer</title>
+    <script type="text/javascript" src="/js/mootools-core-1.4.5.js"></script>
+    <script type="text/javascript" src="/js/Base64.js"></script>
+    <script type="text/javascript" src="/js/site.js"></script>
+    <link rel="stylesheet" href="/css/site.css" type="text/css" media="all" />
+  </head>
+  <body id="page">
+    <div id="body">
+      <div id="header">
+        <button type="button" class="default" id="b_account">Sign in</button>
+      </div>
+      <div id="search">
+        <input type="text" id="q" value="Enter a search query" onclick="if(!this._haschanged){this.value=''};this._haschanged=true;" />
+        <button id="b_submit">go</button>
+        <button id="b_reset">reset</button>
+	  </div>
+	  <div id="content" />
+    </div>
+  </body>
 </html>

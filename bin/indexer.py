@@ -12,6 +12,10 @@ import requests
 import sys
 import threading
 
+sys.path.append('/people/r3boot/fileindexer')
+
+from fileindexer.api.client import APIClient as API
+
 __description__ = 'Add description'
 
 _d_debug = False
@@ -75,63 +79,6 @@ class Indexer(threading.Thread):
 
         self.api.add_file(meta)
 
-class API():
-    def __init__(self, logger, host, port):
-        self.__l = logger
-        self.__uri = 'http://%s:%s' % (host, port)
-        self.__s = requests.session()
-
-    def __serialize(self, data):
-        return base64.b64encode(json.dumps(data))
-
-    def __request(self, method, path, payload={}):
-        response = {}
-        url = self.__uri + path
-        if payload:
-            payload = self.__serialize(payload)
-        try:
-            if method == 'get':
-                r = self.__s.get(url)
-            elif method == 'post':
-                r = self.__s.post(url, data=payload)
-            else:
-                self.__l.error('Invalid request method')
-        except requests.exceptions.ConnectionError, e:
-            r = False
-            response['result'] = False
-            response['message'] = e
-            self.__l.error(e)
-        finally:
-            if r and r.status_code == 200:
-                response = r.json
-            else:
-                response['result'] = False
-                response['message'] = 'Request failed'
-
-        return response
-
-    def ping(self):
-        response = self.__request(method='get', path='/ping')
-        return response['result']
-
-    def get_config(self):
-        response = self.__request(method='get', path='/config')
-        if response['result']:
-            return response['config']
-        else:
-            self.__l.error(response['message'])
-            return {}
-
-    def set_config(self, key, value):
-        payload = {'value': value}
-        response = self.__request(method='post', path='/config/%s' % key, payload=payload)
-        return response['result']
-
-    def add_file(self, meta):
-        payload = {'meta': meta}
-        response = self.__request(method='post', path='/files', payload=payload)
-        return response['result']
-
 def main():
     parser = argparse.ArgumentParser(description=__description__)
     parser.add_argument('-D', dest='debug', action='store_true',
@@ -173,11 +120,10 @@ def main():
     if api.ping():
         logger.debug('Connected to API at %s:%s' % (args.host, args.port))
     else:
-        logger.debug('Failed to connect to API at %s:%s' % (args.host, args.port))
+        logger.error('Failed to connect to API at %s:%s' % (args.host, args.port))
         return
 
     config = api.get_config()
-    print(config)
 
     if args.list_paths:
         if not 'paths' in config:
