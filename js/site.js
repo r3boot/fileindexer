@@ -19,6 +19,7 @@ function get_authentication_token() {
 		onComplete: function(response) {
 			if (response) {
 				set_authentication_token(basic_auth_token);
+				$('header').innerHTML = show_header_box();
 				$('content').innerHTML = show_search_box();
 			} else {
 				set_authentication_token(false);
@@ -27,6 +28,15 @@ function get_authentication_token() {
 		},
 	}).send();
 
+}
+
+function show_header_box() {
+	if (auth_token) {
+		var content = "<div id=\"authentication\"><button type=\"button\" id=\"b_logout\">Sign out</button>";
+	} else {
+		var content = "<div id=\"authentication\"><button type=\"button\" id=\"b_login\">Sign in</button>";
+	}
+	return content;
 }
 
 function show_search_box() {
@@ -59,10 +69,11 @@ function show_login_failure() {
 window.addEvent('domready', function() {
 
 	$('page').addEvent('domready', function(event) {
+		$('header').innerHTML = show_header_box();
 		$('content').innerHTML = show_search_box();
 	});
 
-	$('b_account').addEvent('click', function(event) {
+	$('b_login').addEvent('click', function(event) {
 		event.stop();
 		$('content').innerHTML = show_login_box();
 		$('i_password').addEvent('keydown', function(event) {
@@ -81,6 +92,15 @@ window.addEvent('domready', function() {
 			$('i_username')._haschanged = false;
 			$('i_password').value = '';
 		});
+	});
+
+	$('b_logout').addEvent('click', function(event) {
+		event.stop();
+		if (auth_token) {
+			auth_token = false;
+			$('header').innerHTML = show_header_box();
+			$('content').innerHTML = show_search_box();
+		}
 	});
 
 	$('b_q_submit').addEvent('click', function(event) {
