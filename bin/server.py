@@ -6,6 +6,7 @@ import argparse
 import base64
 import bottle
 import datetime
+import hashlib
 import json
 import logging
 import os
@@ -211,8 +212,11 @@ class Users(MongoAPI):
     def get(self, username):
         user = {}
         user_data = self.collection.find({'_id': username})
-        for k,v in user_data[0].items():
-            user[k] = v
+        try:
+            for k,v in user_data[0].items():
+                user[k] = v
+        except IndexError:
+            pass
         return user
 
     def add(self, meta):
@@ -267,7 +271,7 @@ class API:
         self.servers = Servers(logger)
 
     def __deserialize(self, data):
-        return json.loads(base64.b64decode(data))
+        return json.loads(base64.urlsafe_b64decode(data))
 
     def run(self):
         bottle.run(host=self.__listen_ip, port=self.__listen_port, server='gevent')
@@ -285,6 +289,22 @@ class API:
 
     def ping(self):
         return {'result': True, 'message': 'pong'}
+
+    def do_authenticate(self):
+        (username, password) = bottle.parse_auth(bottle.request.get_header('Authorization'))
+        self.__l.debug('username: '+username+'; password: '+password)
+        user = self.users.get(username)
+        if not user:
+            self.__l.error('no such user %s' % username)
+            bottle.abort(401, 'Access denied')
+        if len(user) != 4:
+            self.__l.error('len(user) != 3 (%s)' % (len(user)))
+            bottle.abort(401, 'Access denied')
+        pwdhash = hashlib.sha512(password).hexdigest()
+        if pwdhash != user['password']:
+            self.__l.error('password mismatch for %s' % username)
+            bottle.abort(401, 'Access denied')
+        return {'result': True, 'message': 'authenticated'}
 
     def get_config(self):
         config = self.config.get_config()
@@ -413,6 +433,7 @@ def main():
 
     ## API
     bottle.route('/ping',            method='GET')    (api.ping)
+    bottle.route('/auth',            method='GET')    (api.do_authenticate)
     bottle.route('/config',          method='GET')    (api.get_config)
     bottle.route('/config/:key',     method='POST')   (api.set_config)
     bottle.route('/users',           method='GET')    (api.get_users)

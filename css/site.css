@@ -1,18 +1,28 @@
 #page {
 	padding: 0px;
+	border: 1px solid #eeeeee;
 }
 
 #header {
 	text-align: right;
 	padding-top: 5px;
 	padding-bottom: 5px;
-	border-bottom: 1px solid #eeeeee;
+	border: 1px solid #eeeeee;
 }
 
 #content {
 	height: 100%;
 	text-align: center;
 	vertical-align: middle;
+	border: 1px solid #eeeeee;
+}
+
+#search {
+	border: 1px solid #eeeeee;
+}
+
+#login {
+	border: 1px solid #eeeeee;
 }
 
 #i_username {
