@@ -1,7 +1,3 @@
-set_authentication_token(false);
-set_username(false);
-set_realname(false);
-
 function set_username(username) {
 	sessionStorage.setItem('username', username);
 }
@@ -28,29 +24,35 @@ function get_authentication_token() {
 
 // Utility functions
 function validate_authentication_token() {
-	var username = $('i_username').value;
-	var password = $('i_password').value;
+	var username = $('#i_username').val();
+	var password = $('#i_password').val();
 	var basic_auth = username + ":" + password;
 	var basic_auth_token = btoa(basic_auth);
 
-	var request = new Request.JSON({
-		method: 'get',
-		url: '/auth',
-		headers: {'Authorization': 'Basic ' + basic_auth_token},
+	$.ajax({
+		url: "/auth",
+		type: 'get',
 		data: {},
-		onComplete: function(response) {
-			if (response) {
+		headers: {'Authorization': 'Basic ' + basic_auth_token},
+		dataType: 'json',
+		success: function(response) {
+			if (response['result']) {
 				set_authentication_token(basic_auth_token);
 				set_username(username);
 				toggle_auth_button_box();
-				$('content').innerHTML = show_search_box();
+				$('#content').html(show_search_box());
 			} else {
+				alert('authentication failed');
 				set_authentication_token(false);
 				set_username(false);
-				$("content").innerHTML = 'Failed to authenticate';
+				$("#content").html('Failed to authenticate');
 			}
 		},
-	}).send();
+		error: function(xhr, textStatus, errorThrown){
+			$("#content").html('Failed to authenticate');
+		}
+		
+	});
 
 }
 
@@ -70,18 +72,20 @@ function get_profile() {
 			$('i_realname').value = get_realname();
 		},
 		onFailure: function(response) {
-			$('content').innerHTML('unable to retrieve profile');
+			$('content').html('unable to retrieve profile');
 		}
 	}).send();
 }
 
 function toggle_auth_button_box() {
-	if (sessionStorage.getItem('auth_token') != 'false') {
-		$('b_profile').style.display = 'block';
-		$('b_auth').innerHTML = 'Sign out';
+	if (sessionStorage.getItem('auth_token') == -1) {
+		$('#a_servers').css("display", "none");
+		$('#a_profile').css("display", "none");
+		$('#a_auth').html('Sign in');
 	} else {
-		$('b_profile').style.display = 'none';
-		$('b_auth').innerHTML = 'Sign in';
+		$('#a_servers').css("display", "block");
+		$('#a_profile').css("display", "block");
+		$('#a_auth').html('Sign out');
 	}
 }
 
@@ -128,13 +132,61 @@ function show_profile_box() {
 	return content;
 }
 
+function main() {
+	$(document).ready(function() {
+		set_authentication_token(-1);
+		set_username(false);
+		set_realname(false);
+
+		$('#content').html(show_search_box());
+
+		$('#a_home').click(function() {
+			$('#content').html(show_search_box());
+		});
+
+		$('#a_servers').click(function() {
+			console.log("a_servers clicked");
+		});
+
+		$('#a_profile').click(function() {
+			console.log("a_profile clicked");
+		});
+
+		$('#a_auth').click(function() {
+			if (sessionStorage.getItem('auth_token') == -1) {
+				$('#content').html(show_login_box());
+
+				$('#b_login_submit').click(function() {
+					validate_authentication_token();
+				});
+
+				$('#b_login_reset').click(function() {
+					$('#i_username').value = 'Username';
+					$('#i_username')._haschanged = false;
+					$('#i_password').value = '';
+				});
+
+			} else {
+				console.log('doing logout');
+				set_authentication_token(-1);
+				set_username(false);
+				toggle_auth_button_box();
+				$('#content').html(show_search_box());
+			}
+		});
+	});
+}
+
+main();
+
+/*
 // Event handling
 window.addEvent('domready', function() {
 
 	toggle_auth_button_box();
 
 	$('page').addEvent('domready', function(event) {
-		$('content').innerHTML = show_search_box();
+		$('content').html = show_search_box();
 	});
 
 	$('b_auth').addEvent('click', function(event) {
@@ -144,10 +196,10 @@ window.addEvent('domready', function() {
 			set_authentication_token(false);
 			set_username(false);
 			toggle_auth_button_box();
-			$('content').innerHTML = show_search_box();
+			$('content').html = show_search_box();
 		} else {
 			// login
-			$('content').innerHTML = show_login_box();
+			$('content').html = show_login_box();
 			$('i_password').addEvent('keydown', function(event) {
 				if (event.key == 'enter') {
 					event.stop();
@@ -169,7 +221,7 @@ window.addEvent('domready', function() {
 
 	$('b_profile').addEvent('click', function(event) {
 		event.stop();
-		$('content').innerHTML = show_profile_box();
+		$('content').html = show_profile_box();
 		get_profile();
 		$('b_update_profile').addEvent('click', function(event) {
 			event.stop();
@@ -195,7 +247,7 @@ window.addEvent('domready', function() {
 						set_authentication_token(false);
 						set_username(false);
 						toggle_auth_button_box();
-						$('content').innerHTML = show_login_box();
+						$('content').html = show_login_box();
 						$('i_password').addEvent('keydown', function(event) {
 							if (event.key == 'enter') {
 								event.stop();
@@ -213,7 +265,7 @@ window.addEvent('domready', function() {
 							$('i_password').value = '';
 						});
 					} else {
-						$('content').innerHTML = show_search_box();
+						$('content').html = show_search_box();
 					}
 				}
 			}).send();
@@ -227,11 +279,11 @@ window.addEvent('domready', function() {
 			url: '/files',
 			data: {},
 			onRequest: function() {
-				$("content").innerHTML = "Sending request to API";
+				$("content").html = "Sending request to API";
 			},
 			onComplete: function(response) {
 				console.log("response: "+response);
-				$("content").innerHTML = "Request returned from API:" + response;
+				$("content").html = "Request returned from API:" + response;
 			}
 		}).send();
 	});
@@ -241,3 +293,4 @@ window.addEvent('domready', function() {
 	});
 
 });
+*/

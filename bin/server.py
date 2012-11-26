@@ -59,10 +59,15 @@ class API:
     def serve_js(self, filename):
         if os.path.exists('/people/r3boot/fileindexer/js/%s' % filename):
             return open('/people/r3boot/fileindexer/js/%s' % filename, 'r').read()
+        else:
+            bottle.abort(404, 'File not found')
 
     def serve_css(self, filename):
         if os.path.exists('/people/r3boot/fileindexer/css/%s' % filename):
+            bottle.response.set_header('Content-type', 'text/css')
             return open('/people/r3boot/fileindexer/css/%s' % filename, 'r').read()
+        else:
+            bottle.abort(404, 'File not found')
 
     def ping(self):
         return {'result': True, 'message': 'pong'}

@@ -11,6 +11,7 @@ class must_authenticate(object):
                 self.users = args[0].users
 
             (username, password) = bottle.parse_auth(bottle.request.get_header('Authorization'))
+            print('username: '+username+'; password: '+password)
             user = self.users.get(username)
             if not user:
                 bottle.abort(401, 'Access denied')
