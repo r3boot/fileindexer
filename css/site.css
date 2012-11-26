@@ -4,6 +4,7 @@
 }
 
 #header {
+	height: 22px;
 	text-align: right;
 	padding-top: 5px;
 	padding-bottom: 5px;
@@ -25,8 +26,17 @@
 	border: 1px solid #eeeeee;
 }
 
-#i_username {
-	background: #333444;
+#b_profile {
+	display: none;
+	float: right;
+}
+
+#b_auth {
+	float: right;
+}
+
+#t_profile {
+	border: 0;
 }
 
 button.default{

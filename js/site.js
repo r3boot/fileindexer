@@ -1,7 +1,8 @@
-var auth_token = false;
+set_authentication_token(false);
 
 function set_authentication_token(token) {
-	auth_token = token;
+	sessionStorage.setItem('auth_token', token);
+	console.log('param: '+token+'; storage: '+sessionStorage.getItem('auth_token'));
 }
 
 // Utility functions
@@ -19,7 +20,7 @@ function get_authentication_token() {
 		onComplete: function(response) {
 			if (response) {
 				set_authentication_token(basic_auth_token);
-				$('header').innerHTML = show_header_box();
+				toggle_auth_button_box();
 				$('content').innerHTML = show_search_box();
 			} else {
 				set_authentication_token(false);
@@ -30,13 +31,14 @@ function get_authentication_token() {
 
 }
 
-function show_header_box() {
-	if (auth_token) {
-		var content = "<div id=\"authentication\"><button type=\"button\" id=\"b_logout\">Sign out</button>";
+function toggle_auth_button_box() {
+	if (sessionStorage.getItem('auth_token') != 'false') {
+		$('b_profile').style.display = 'block';
+		$('b_auth').innerHTML = 'Sign out';
 	} else {
-		var content = "<div id=\"authentication\"><button type=\"button\" id=\"b_login\">Sign in</button>";
+		$('b_profile').style.display = 'none';
+		$('b_auth').innerHTML = 'Sign in';
 	}
-	return content;
 }
 
 function show_search_box() {
@@ -65,42 +67,57 @@ function show_login_failure() {
 	return content;
 }
 
+function show_profile() {
+	var content = "<table id=\"t_profile\">";
+	content += "<tr>";
+	content += "<td>Real Name:</td>";
+	content += "<td>TBD</td>";
+	content += "</tr>";
+	content += "</table>";
+	return content;
+}
+
 // Event handling
 window.addEvent('domready', function() {
 
+	toggle_auth_button_box();
+
 	$('page').addEvent('domready', function(event) {
-		$('header').innerHTML = show_header_box();
 		$('content').innerHTML = show_search_box();
 	});
 
-	$('b_login').addEvent('click', function(event) {
+	$('b_auth').addEvent('click', function(event) {
 		event.stop();
-		$('content').innerHTML = show_login_box();
-		$('i_password').addEvent('keydown', function(event) {
-			if (event.key == 'enter') {
+		if (sessionStorage.getItem('auth_token') != 'false') {
+			// logout
+			set_authentication_token(false);
+			toggle_auth_button_box();
+			$('content').innerHTML = show_search_box();
+		} else {
+			// login
+			$('content').innerHTML = show_login_box();
+			$('i_password').addEvent('keydown', function(event) {
+				if (event.key == 'enter') {
+					event.stop();
+					get_authentication_token();
+				}
+			});
+			$('b_login_submit').addEvent('click', function(event) {
 				event.stop();
 				get_authentication_token();
-			}
-		});
-		$('b_login_submit').addEvent('click', function(event) {
-			event.stop();
-			get_authentication_token();
-		});
-		$('b_login_reset').addEvent('click', function(event) {
-			event.stop();
-			$('i_username').value = 'Username';
-			$('i_username')._haschanged = false;
-			$('i_password').value = '';
-		});
+			});
+			$('b_login_reset').addEvent('click', function(event) {
+				event.stop();
+				$('i_username').value = 'Username';
+				$('i_username')._haschanged = false;
+				$('i_password').value = '';
+			});
+		}
 	});
 
-	$('b_logout').addEvent('click', function(event) {
+	$('b_profile').addEvent('click', function(event) {
 		event.stop();
-		if (auth_token) {
-			auth_token = false;
-			$('header').innerHTML = show_header_box();
-			$('content').innerHTML = show_search_box();
-		}
+		$('content').innerHTML = show_profile();
 	});
 
 	$('b_q_submit').addEvent('click', function(event) {
@@ -113,14 +130,14 @@ window.addEvent('domready', function() {
 				$("content").innerHTML = "Sending request to API";
 			},
 			onComplete: function(response) {
-				alert("response: "+response);
+				console.log("response: "+response);
 				$("content").innerHTML = "Request returned from API:" + response;
 			}
 		}).send();
 	});
 
 	$('b_q_reset').addEvent('click', function(event) {
-		alert('reset');
+		console.log('reset');
 	});
 
 });
