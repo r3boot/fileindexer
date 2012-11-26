@@ -43,7 +43,12 @@ class API:
         self.servers = fileindexer.mongodb.Servers(logger)
 
     def __deserialize(self, data):
+        print(base64.urlsafe_b64decode(data))
         return json.loads(base64.urlsafe_b64decode(data))
+
+    def __get_username(self):
+        (username, password) = bottle.parse_auth(bottle.request.get_header('Authorization'))
+        return username
 
     def run(self):
         bottle.run(host=self.__listen_ip, port=self.__listen_port, server='gevent')
@@ -103,6 +108,8 @@ class API:
         else:
             return {'result': False, 'message': 'Failed to retrieve metadata'}
 
+    @fileindexer.decorators.must_authenticate()
+    @fileindexer.decorators.must_be_admin()
     def get_users(self):
         users = self.users.list()
         if users:
@@ -110,6 +117,7 @@ class API:
         else:
             return {'result': False, 'message': 'No users found'}
 
+    @fileindexer.decorators.must_authenticate()
     def get_user(self, username):
         user = self.users.get(username)
         if user:
@@ -117,6 +125,17 @@ class API:
         else:
             return {'result': False, 'message': 'Failed to retrieve userdata'}
 
+    @fileindexer.decorators.must_authenticate()
+    def update_user(self, username):
+        request = self.__deserialize(bottle.request.body.readline())
+        username = self.__get_username()
+        if request['username'] != username:
+            bottle.abort(401, 'Access denied')
+        self.users.update(request)
+        return {'result': True, 'message': 'User profile updated'}
+
+    @fileindexer.decorators.must_authenticate()
+    @fileindexer.decorators.must_be_admin()
     def add_user(self):
         request = self.__deserialize(bottle.request.body.readline())
         if 'user' in request:
@@ -124,6 +143,8 @@ class API:
         else:
             return {'result': False, 'message': 'No userinfo received'}
 
+    @fileindexer.decorators.must_authenticate()
+    @fileindexer.decorators.must_be_admin()
     def remove_user(self, username):
         if self.users.remove(username):
             return {'result': True, 'message': 'User removed succesfully'}
@@ -199,6 +220,7 @@ def main():
     bottle.route('/users',           method='GET')    (api.get_users)
     bottle.route('/users',           method='POST')   (api.add_user)
     bottle.route('/users/:username', method='GET')    (api.get_user)
+    bottle.route('/users/:username', method='POST')   (api.update_user)
     bottle.route('/users/:username', method='DELETE') (api.remove_user)
     bottle.route('/servers',         method='GET')    (api.get_servers)
     bottle.route('/servers',         method='POST')   (api.add_server)

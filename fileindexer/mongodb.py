@@ -1,4 +1,5 @@
 import datetime
+import hashlib
 import pymongo
 import uuid
 
@@ -196,6 +197,17 @@ class Users(MongoAPI):
     def add(self, meta):
         meta['_id'] = meta['username']
         return self.collection.save(meta)
+
+    def update(self, meta):
+        user = self.get(meta['username'])
+        for k,v in meta.items():
+            if k == 'username': continue
+            if k == 'new_password':
+                password = hashlib.sha512(v).hexdigest()
+                user['password'] =  password
+            else:
+                user[k] = v
+        return self.collection.save(user)
 
     def remove(self, username):
         if username in self.list():
