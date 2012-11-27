@@ -123,7 +123,7 @@ function show_login_box() {
 
 function show_profile_box() {
 	var content = "<form class=\"form-profile\">"
-	content += "<h2 class=\"form-signin-heading\">Edit profile for "+sget('username')+"</h2>"
+	content += "<h2 class=\"form-profile-heading\">Edit profile for "+sget('username')+"</h2>"
 	content += "<table class=\"table-profile\">"
 	content += "<tr>"
 	content += "<td>Real Name:</td>"
@@ -139,7 +139,58 @@ function show_profile_box() {
 	content += "<button class=\"btn btn-large btn-primary\" type=\"submit\" id=\"b_update_profile\">Update</button>"
 	content += "</form>"
 	return content
+}
 
+function show_servers_box() {
+	var content = "<form class=\"form-servers\">"
+	content += "<h2 class=\"form-servers-heading\">Edit servers for "+sget('username')+"</h2>"
+	content += "<table class=\"table-servers\">"
+	content += "<thead><tr>"
+	content += "<th>Server</th>"
+	content += "<th>Protocols</th>"
+	content += "<th>Rewrites</th>"
+	content += "<th>API key</th>"
+	content += "</tr></thead>"
+	content += "<tbody>"
+	content += "</tbody>"
+	content += "</table>"
+	content += "<button class=\"btn btn-large btn-primary\" type=\"button\" id=\"b_add_new_server\">Add server</button>&nbsp;"
+	content += "<button class=\"btn btn-large btn-primary\" type=\"button\" id=\"b_add_new_rewrite\">Add rewrite rule</button>"
+	content += "</form>"
+	return content
+}
+
+function show_add_server_box() {
+	var content = "<form class=\"form-servers\">"
+	content += "<h2 class=\"form-servers-heading\">Add server for "+sget('username')+"</h2>"
+	content += "<table class=\"table-servers\">"
+	content += "<tr><td>Fqdn or ip</td>"
+	content += "<td><input type=\"text\" class=\"input-block-level\" id=\"i_hostname\" /></td></tr>"
+	content += "<tr><td>Protocols</td>"
+	content += "<td>"
+	content += "<label class=\"checkbox\"><input type=\"checkbox\" value=\"http\"> http</label>"
+	content += "<label class=\"checkbox\"><input type=\"checkbox\" value=\"https\"> https</label>"
+	content += "<label class=\"checkbox\"><input type=\"checkbox\" value=\"ftp\"> ftp</label>"
+	content += "<label class=\"checkbox\"><input type=\"checkbox\" value=\"ftps\"> ftps</label>"
+	content += "</td><td>"
+	content += "<label class=\"checkbox\"><input type=\"checkbox\" value=\"ftp+ssl\"> ftp+ssl</label>"
+	content += "<label class=\"checkbox\"><input type=\"checkbox\" value=\"rsync\"> rsync</label>"
+	content += "<label class=\"checkbox\"><input type=\"checkbox\" value=\"nfs\"> nfs</label>"
+	content += "<label class=\"checkbox\"><input type=\"checkbox\" value=\"smb\"> smb</label>"
+	content += "</td></tr>"
+	content += "</table>"
+	content += "<button class=\"btn btn-large btn-primary\" type=\"button\" id=\"b_add_new_server\">Add</button>&nbsp;"
+	content += "</form>"
+	return content
+}
+
+function show_add_rewrite_box() {
+	var content = "<form class=\"form-servers\">"
+	content += "<h2 class=\"form-servers-heading\">Add rewrite for "+sget('username')+"</h2>"
+	content += "<input type=\"text\" class=\"input-block-level\" id=\"i_rewrite_rule\" />"
+	content += "<button class=\"btn btn-large btn-primary\" type=\"button\" id=\"b_add_new_rewrite\">Add</button>"
+	content += "</form>"
+	return content
 }
 
 function main() {
@@ -187,14 +238,11 @@ function main() {
 						has_newpass = true
 					}
 				}
-				json_data = JSON.stringify(meta)
-				b64_data = btoa(json_data)
-				console.log('b64_data: '+b64_data)
 
 				$.ajax({
 					url: '/users/'+username,
 					type: 'post',
-					data: b64_data,
+					data: btoa(JSON.stringify(meta)),
 					headers: {'Authorization': 'Basic ' + sget('auth_token')},
 					dataType: 'json',
 					success: function(response) {
@@ -216,6 +264,27 @@ function main() {
 			})
 		})
 
+		$('#a_servers').click(function() {
+			$('#content').html(show_servers_box())
+
+			$('#b_add_new_server').click(function() {
+				$('#content').html(show_add_server_box())
+
+				$('#b_add_new_server').click(function() {
+					console.log("add server")
+				})
+			})
+
+			$('#b_add_new_rewrite').click(function() {
+				$('#content').html(show_add_rewrite_box())
+
+				$('#b_add_new_rewrite').click(function() {
+					console.log("add rewrite")
+				})
+			})
+
+		})
+
 		$('#a_auth').click(function() {
 			if (sget('auth_token') == false) {
 				$('#content').html(show_login_box())
@@ -231,7 +300,6 @@ function main() {
 				$('#content').html(show_search_box())
 			}
 		})
-
 
 	})
 }
