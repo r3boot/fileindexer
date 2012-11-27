@@ -22,6 +22,11 @@ function sset(k, v) {
 	s.save()
 }
 
+function reset_store() {
+	sset('username', false)
+	sset('realname', false)
+	sset('auth_token', false)
+}
 
 // Utility functions
 function validate_authentication_token() {
@@ -33,7 +38,6 @@ function validate_authentication_token() {
 	$.ajax({
 		url: "/auth",
 		type: 'get',
-		data: {},
 		headers: {'Authorization': 'Basic ' + basic_auth_token},
 		dataType: 'json',
 		success: function(response) {
@@ -48,7 +52,8 @@ function validate_authentication_token() {
 				$("#content").html('Failed to authenticate')
 			}
 		},
-		error: function(xhr, textStatus, errorThrown){
+		error: function(xhr, textStatus, errorThrown) {
+			console.log('XHR: '+xhr.status+'; textStatus: '+textStatus+'; errorThrown: '+errorThrown)
 			$("#content").html('Failed to authenticate')
 		}
 		
@@ -57,24 +62,30 @@ function validate_authentication_token() {
 }
 
 function get_profile() {
-	username = get_username()
-	if (username == 'false') {
+	username = sget('username')
+	if (username == false) {
 		return false
 	}
 
-	var request = new Request.JSON({
-		method: 'get',
+	$.ajax({
 		url: '/users/'+username,
-		headers: {'Authorization': 'Basic ' + get_authentication_token()},
+		type: 'get',
 		data: {},
-		onComplete: function(response) {
-			set_realname(response['user']['realname'])
-			$('i_realname').value = get_realname()
+		headers: {'Authorization': 'Basic ' + sget('auth_token')},
+		dataType: 'json',
+		success: function(response) {
+			if (response['result'] == true) {
+				sset('realname', response['user']['realname'])
+				$('#i_realname').val(response['user']['realname'])
+			} else {
+				$('content').html('unable to retrieve profile')
+			}
 		},
-		onFailure: function(response) {
+		error: function(xhr, textStatus, errorThrown) {
 			$('content').html('unable to retrieve profile')
 		}
-	}).send()
+	})
+
 }
 
 function toggle_auth_button_box() {
@@ -99,37 +110,36 @@ function show_search_box() {
 }
 
 function show_login_box() {
-	var content = "<div id=\"login\">"
-	content += "<input type=\"text\" id=\"i_username\" name=\"username\" value=\"Username\" onclick=\"if(!this._haschanged){this.value=''};this._haschanged=true;\" /><br />"
-	content += "<input type=\"password\" id=\"i_password\" name=\"password\" /><br />"
-	content += "<button class=\"default\" id=\"b_login_submit\">submit</button>"
-	content += "<button class=\"default\" id=\"b_login_reset\">reset</button>"
-	content += "</div>"
-	return content
-}
-
-function show_login_failure() {
-	var content = "<div id=\"login_failed\">"
-	content += "authentication failed"
-	content += "</div>"
+	var content = "<form class=\"form-signin\">"
+	content += "<h2 class=\"form-signin-heading\">Please sign in</h2>"
+	content += "<input type=\"text\" id=\"i_username\" class=\"input-block-level\" placeholder=\"Username\">"
+	content += "<input type=\"password\" id=\"i_password\" class=\"input-block-level\" placeholder=\"Password\">"
+	content += "<label class=\"checkbox\">"
+	content += "<input type=\"checkbox\" value=\"remember-me\"> Remember me</label>"
+	content += "<button class=\"btn btn-large btn-primary\" id=\"b_signin\" type=\"submit\">Sign in</button>"
+	content += "</form>"
 	return content
 }
 
 function show_profile_box() {
-	var content = "<table id=\"t_profile\">"
+	var content = "<form class=\"form-profile\">"
+	content += "<h2 class=\"form-signin-heading\">Edit profile for "+sget('username')+"</h2>"
+	content += "<table class=\"table-profile\">"
 	content += "<tr>"
 	content += "<td>Real Name:</td>"
-	content += "<td><input type=\"text\" id=\"i_realname\" name=\"realname\" /></td>"
+	content += "<td><input type=\"text\" class=\"input-block-level\" id=\"i_realname\" /></td>"
 	content += "</tr><tr>"
 	content += "<td>New Password:</td>"
-	content += "<td><input type=\"text\" id=\"i_newpass1\" name=\"newpass1\" /></td>"
+	content += "<td><input type=\"password\" class=\"input-block-level\" id=\"i_newpass1\" /></td>"
 	content += "</tr><tr>"
 	content += "<td>New Password (again):</td>"
-	content += "<td><input type=\"text\" id=\"i_newpass2\" name=\"newpass2\" /></td>"
+	content += "<td><input type=\"password\" class=\"input-block-level\" id=\"i_newpass2\" /></td>"
 	content += "</tr>"
 	content += "</table>"
-	content += "<p/><button type=\"button\" id=\"b_update_profile\">Update</button>"
+	content += "<button class=\"btn btn-large btn-primary\" type=\"submit\" id=\"b_update_profile\">Update</button>"
+	content += "</form>"
 	return content
+
 }
 
 function main() {
@@ -161,149 +171,70 @@ function main() {
 		})
 
 		$('#a_profile').click(function() {
-			console.log("a_profile clicked")
+			$('#content').html(show_profile_box())
+			get_profile()
+
+			$('#b_update_profile').click(function() {
+				username = sget('username')
+				var meta = {'username': username}
+				var has_newpass = false
+				if ($('#i_realname').val() != sget('realname')) {
+					meta['realname'] = $('#i_realname').val()
+				}
+				if ($('#i_newpass1').val() != '') {
+					if ($('#i_newpass1').val() == $('#i_newpass2').val()) {
+						meta['new_password'] = $('#i_newpass1').val()
+						has_newpass = true
+					}
+				}
+				json_data = JSON.stringify(meta)
+				b64_data = btoa(json_data)
+				console.log('b64_data: '+b64_data)
+
+				$.ajax({
+					url: '/users/'+username,
+					type: 'post',
+					data: b64_data,
+					headers: {'Authorization': 'Basic ' + sget('auth_token')},
+					dataType: 'json',
+					success: function(response) {
+						if (has_newpass) {
+							reset_store()
+							toggle_auth_button_box()
+							$('#content').html(show_login_box())
+							$('#b_signin').click(function() {
+								validate_authentication_token()
+							})
+						} else {
+							$('#content').html(show_search_box())
+						}
+					},
+					error: function(xhr, textStatus, errorThrown) {
+						$('#content').html('Failed to update profile')
+					}
+				})
+			})
 		})
 
 		$('#a_auth').click(function() {
 			if (sget('auth_token') == false) {
 				$('#content').html(show_login_box())
 
-				$('#b_login_submit').click(function() {
+				$('#b_signin').click(function() {
 					validate_authentication_token()
-				})
-
-				$('#b_login_reset').click(function() {
-					$('#i_username').value = 'Username'
-					$('#i_username')._haschanged = false
-					$('#i_password').value = ''
 				})
 
 			} else {
 				console.log('doing logout')
-				sset('auth_token', false)
-				sset('username', false)
-				sset('realname', false)
+				reset_store()
 				toggle_auth_button_box()
 				$('#content').html(show_search_box())
 			}
 		})
+
+
 	})
 }
 
+/* GO GO GO */
 main()
-
-/*
-// Event handling
-window.addEvent('domready', function() {
-
-	toggle_auth_button_box()
-
-	$('page').addEvent('domready', function(event) {
-		$('content').html = show_search_box()
-	})
-
-	$('b_auth').addEvent('click', function(event) {
-		event.stop()
-		if (localStorage.getItem('auth_token') != 'false') {
-			// logout
-			set_authentication_token(false)
-			set_username(false)
-			toggle_auth_button_box()
-			$('content').html = show_search_box()
-		} else {
-			// login
-			$('content').html = show_login_box()
-			$('i_password').addEvent('keydown', function(event) {
-				if (event.key == 'enter') {
-					event.stop()
-					validate_authentication_token()
-				}
-			})
-			$('b_login_submit').addEvent('click', function(event) {
-				event.stop()
-				validate_authentication_token()
-			})
-			$('b_login_reset').addEvent('click', function(event) {
-				event.stop()
-				$('i_username').value = 'Username'
-				$('i_username')._haschanged = false
-				$('i_password').value = ''
-			})
-		}
-	})
-
-	$('b_profile').addEvent('click', function(event) {
-		event.stop()
-		$('content').html = show_profile_box()
-		get_profile()
-		$('b_update_profile').addEvent('click', function(event) {
-			event.stop()
-			username = get_username()
-			var meta = {'username': username}
-			var has_newpass = false
-			if ($('i_realname').value != get_realname()) {
-				meta['realname'] = $('i_realname').value
-			}
-			if ($('i_newpass1').value != '') {
-				if ($('i_newpass1').value == $('i_newpass2').value) {
-					meta['new_password'] = $('i_newpass1').value
-					has_newpass = true
-				}
-			}
-			var request = new Request.JSON({
-				method: 'post',
-				url: '/users/'+username,
-				headers: {'Authorization': 'Basic ' + get_authentication_token()},
-				data: btoa(JSON.encode(meta)),
-				onComplete: function(response) {
-					if (has_newpass) {
-						set_authentication_token(false)
-						set_username(false)
-						toggle_auth_button_box()
-						$('content').html = show_login_box()
-						$('i_password').addEvent('keydown', function(event) {
-							if (event.key == 'enter') {
-								event.stop()
-								validate_authentication_token()
-							}
-						})
-						$('b_login_submit').addEvent('click', function(event) {
-							event.stop()
-							validate_authentication_token()
-						})
-						$('b_login_reset').addEvent('click', function(event) {
-							event.stop()
-							$('i_username').value = 'Username'
-							$('i_username')._haschanged = false
-							$('i_password').value = ''
-						})
-					} else {
-						$('content').html = show_search_box()
-					}
-				}
-			}).send()
-		})
-	})
-
-	$('b_q_submit').addEvent('click', function(event) {
-		event.stop()
-		var request = new Request.JSON({
-			method: 'get',
-			url: '/files',
-			data: {},
-			onRequest: function() {
-				$("content").html = "Sending request to API"
-			},
-			onComplete: function(response) {
-				console.log("response: "+response)
-				$("content").html = "Request returned from API:" + response
-			}
-		}).send()
-	})
-
-	$('b_q_reset').addEvent('click', function(event) {
-		console.log('reset')
-	})
-
-})
-*/
