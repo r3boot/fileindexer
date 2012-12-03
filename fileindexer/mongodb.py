@@ -81,96 +81,43 @@ class Files(MongoAPI):
             return meta['_id']
         self.__l.debug('%s already in store' % meta['path'])
 
-class Config(MongoAPI):
-    __cfgclass = 'server'
-    __defaults = {
-        'paths': []
-    }
-    indexes = ['cfgclass']
-
+class Indexes(MongoAPI):
+    indexes = ['path', 'username']
     def __init__(self, logger):
-        MongoAPI.__init__(self, logger, 'config')
+        MongoAPI.__init__(self, logger, 'indexes')
         self.__l = logger
-        self.__cfg = False
 
-    def __getitem__(self, item):
-        cfg = self.__get_config()
-        if not cfg:
-            self.__l.debug('No configuration found')
-            return None
+    def list(self, username):
+        indexes = []
+        for idx in self.collection.find({'username': username}):
+            indexes.append(idx)
+        return indexes
 
-        if item in cfg.keys():
-            return cfg[item]
-        else:
-            return None
+    def get(self, username, path):
+        idx = {}
+        idx_data = self.collection.find({'username': username, 'path': path})
+        try:
+            for k,v in idx_data[0].items():
+                idx[k] = v
+        except IndexError:
+            pass
+        return idx
 
-    def __setitem__(self, item, value):
-        cfg = self.__get_config()
-        if not cfg:
-            self.__l.debug('No configuration found')
-            return False
+    def add(self, meta):
+        return self.collection.save(meta)
 
-        cfg[item] = value
-        self.collection.save(cfg)
-        return True
+    def update(self, meta):
+        idx = self.get(meta['username'], meta['path'])
+        for k,v in meta.items():
+            if k == 'username': continue
+            if k == 'path': continue
+            idx[k] = v
+        return self.collection.save(idx)
 
-    def __get_config(self):
-        self.__l.debug('Trying to retrieve configuration')
-        cfg = self.collection.find_one({'cfgclass': self.__cfgclass})
-        if cfg:
-            self.__l.debug('Configuration found')
-            (result, missing, unwanted) = self.validate(cfg)
-            if not result:
-                return False
-        else:
-            self.__l.debug('Failed to find configuration, creating defaults')
-            self.set_defaults()
-
-        return cfg
-
-    def get_config(self):
-        cfg = self.__get_config()
-        del(cfg['_id'])
-        return cfg
-
-    def validate(self, cfg):
-        self.__l.debug('Validating configuration')
-        items = self.__defaults.keys()
-        items.append('cfgclass')
-        missing_in_cfg = []
-        unwanted_in_cfg = []
-
-        for k in cfg.keys():
-            if k == '_id': continue
-            if not k in items:
-                unwanted_in_cfg.append(k)
-
-        for k in items:
-            if not k in cfg:
-                missing_in_cfg.append(k)
-
-        if missing_in_cfg:
-            self.__l.debug('The following items are missing in the configuration:')
-            for k in missing_in_cfg:
-                self.__l.debug('* %s' % k)
-
-        if unwanted_in_cfg:
-            self.__l.debug('The following items are unwanted in the configuration:')
-            for k in unwanted_in_cfg:
-                self.__l.debug('* %s' % k)
-
-        if missing_in_cfg or unwanted_in_cfg:
-            self.__l.debug('Validation failed')
-            return (False, missing_in_cfg, unwanted_in_cfg)
-        else:
-            self.__l.debug('Validation succeeded')
-            return (True, missing_in_cfg, unwanted_in_cfg)
-
-    def set_defaults(self):
-        cfg = self.__defaults
-        cfg['cfgclass'] = self.__cfgclass
-
-        self.collection.save(cfg)
+    def remove(self, username, path):
+        if self.get(username, path):
+            self.collection.remove({'username': username, 'path': path})
+            return True
 
 class Users(MongoAPI):
     indexes = ['username']
@@ -215,7 +162,7 @@ class Users(MongoAPI):
             return True
 
 class Servers(MongoAPI):
-    indexes = ['servername']
+    indexes = ['hostname']
     def __init__(self, logger):
         MongoAPI.__init__(self, logger, 'servers')
         self.__l = logger
@@ -223,22 +170,19 @@ class Servers(MongoAPI):
     def list(self):
         servers = []
         for server in self.collection.find():
-            servers.append(server['servername'])
+            servers.append(server)
         return servers
 
-    def get(self, servername):
-        server = {}
-        server_data = self.collection.find({'_id': servername})
-        for k,v in server_data[0].items():
-            server[k] = v
-        return server
+    def get(self, username):
+        servers = list(self.collection.find({'username': username}))
+        return servers
 
     def add(self, meta):
-        meta['_id'] = meta['servername']
+        meta['_id'] = meta['hostname']
         meta['apikey'] = str(uuid.uuid4())
         return self.collection.save(meta)
 
-    def remove(self, servername):
-        if servername in self.list():
-            self.collection.remove({'servername': servername})
+    def remove(self, hostname):
+        if hostname in self.list():
+            self.collection.remove({'hostname': hostname})
             return True

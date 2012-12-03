@@ -34,12 +34,16 @@ function validate_authentication_token() {
 	var password = $('#i_password').val()
 	var basic_auth = username + ":" + password
 	var basic_auth_token = btoa(basic_auth)
+	console.log('basic_auth_token: '+basic_auth_token)
 
 	$.ajax({
 		url: "/auth",
 		type: 'get',
-		headers: {'Authorization': 'Basic ' + basic_auth_token},
+		data: {},
 		dataType: 'json',
+		beforeSend : function(req) {
+			req.setRequestHeader('Authorization', 'Basic ' + basic_auth_token)
+		},
 		success: function(response) {
 			if (response['result']) {
 				sset('auth_token', basic_auth_token)
@@ -144,19 +148,20 @@ function show_profile_box() {
 function show_servers_box() {
 	var content = "<form class=\"form-servers\">"
 	content += "<h2 class=\"form-servers-heading\">Edit servers for "+sget('username')+"</h2>"
-	content += "<table class=\"table-servers\">"
-	content += "<thead><tr>"
-	content += "<th>Server</th>"
-	content += "<th>Protocols</th>"
-	content += "<th>Rewrites</th>"
-	content += "<th>API key</th>"
-	content += "</tr></thead>"
-	content += "<tbody>"
-	content += "</tbody>"
-	content += "</table>"
+	content += "<div id=\"servers_content\"></div>"
 	content += "<button class=\"btn btn-large btn-primary\" type=\"button\" id=\"b_add_new_server\">Add server</button>&nbsp;"
-	content += "<button class=\"btn btn-large btn-primary\" type=\"button\" id=\"b_add_new_rewrite\">Add rewrite rule</button>"
 	content += "</form>"
+	return content
+}
+
+function show_servers_table() {
+	var content = "<table class=\"table-servers\">"
+	content += "<thead><tr>"
+	content += "<th>Hostname</th>"
+	content += "<th>Api key</th>"
+	content += "</tr></thead>"
+	content += "<tbody id=\"table_servers_content\"></tbody>"
+	content += "</table>"
 	return content
 }
 
@@ -166,18 +171,6 @@ function show_add_server_box() {
 	content += "<table class=\"table-servers\">"
 	content += "<tr><td>Fqdn or ip</td>"
 	content += "<td><input type=\"text\" class=\"input-block-level\" id=\"i_hostname\" /></td></tr>"
-	content += "<tr><td>Protocols</td>"
-	content += "<td>"
-	content += "<label class=\"checkbox\"><input type=\"checkbox\" value=\"http\"> http</label>"
-	content += "<label class=\"checkbox\"><input type=\"checkbox\" value=\"https\"> https</label>"
-	content += "<label class=\"checkbox\"><input type=\"checkbox\" value=\"ftp\"> ftp</label>"
-	content += "<label class=\"checkbox\"><input type=\"checkbox\" value=\"ftps\"> ftps</label>"
-	content += "</td><td>"
-	content += "<label class=\"checkbox\"><input type=\"checkbox\" value=\"ftp+ssl\"> ftp+ssl</label>"
-	content += "<label class=\"checkbox\"><input type=\"checkbox\" value=\"rsync\"> rsync</label>"
-	content += "<label class=\"checkbox\"><input type=\"checkbox\" value=\"nfs\"> nfs</label>"
-	content += "<label class=\"checkbox\"><input type=\"checkbox\" value=\"smb\"> smb</label>"
-	content += "</td></tr>"
 	content += "</table>"
 	content += "<button class=\"btn btn-large btn-primary\" type=\"button\" id=\"b_add_new_server\">Add</button>&nbsp;"
 	content += "</form>"
@@ -217,13 +210,13 @@ function main() {
 			$('#content').html(show_search_box())
 		})
 
-		$('#a_servers').click(function() {
-			console.log("a_servers clicked")
-		})
-
 		$('#a_profile').click(function() {
 			$('#content').html(show_profile_box())
 			get_profile()
+
+			$('#a_servers').removeClass('active');
+			$('#a_profile').addClass('active');
+			$('#a_auth').removeClass('active');
 
 			$('#b_update_profile').click(function() {
 				username = sget('username')
@@ -242,7 +235,7 @@ function main() {
 				$.ajax({
 					url: '/users/'+username,
 					type: 'post',
-					data: btoa(JSON.stringify(meta)),
+					data: JSON.stringify(meta),
 					headers: {'Authorization': 'Basic ' + sget('auth_token')},
 					dataType: 'json',
 					success: function(response) {
@@ -267,11 +260,61 @@ function main() {
 		$('#a_servers').click(function() {
 			$('#content').html(show_servers_box())
 
+			$.ajax({
+				url: '/servers/'+sget('username'),
+				type: 'get',
+				headers: {'Authorization': 'Basic ' + sget('auth_token')},
+				dataType: 'json',
+				success: function(response) {
+					if (response['result']) {
+						$('#servers_content').html(show_servers_table())
+						var content = ''
+
+						for (var i=0; i<response['servers'].length; i++) {
+							content += '<tr>'
+							content += '<td>'+response['servers'][i]['hostname']+'</td>'
+							content += '<td>'+response['servers'][i]['apikey']+'</td>'
+							content += '</tr>'
+						}
+						$('#table_servers_content').html(content)
+
+					} else {
+						$('#servers_content').html('no servers found')
+					}
+				},
+				error: function(xhr, textStatus, errorThrown) {
+					$('#servers_content').html('Failed to fetch servers')
+				}
+			})
+
+			$('#a_servers').addClass('active');
+			$('#a_profile').removeClass('active');
+			$('#a_auth').removeClass('active');
+
 			$('#b_add_new_server').click(function() {
 				$('#content').html(show_add_server_box())
 
 				$('#b_add_new_server').click(function() {
-					console.log("add server")
+					var hostname = $('#i_hostname').val()
+					var meta = {'hostname': hostname, 'username': sget('username')}
+
+					$.ajax({
+						url: '/servers/'+sget('username'),
+						type: 'post',
+						headers: {'Authorization': 'Basic ' + sget('auth_token')},
+						data: JSON.stringify(meta),
+						dataType: 'json',
+						success: function(response) {
+							if (response['result']) {
+								$('#content').html('Successfully added server')
+							} else {
+								$('#content').html('Failed to add server')
+							}
+						},
+						error: function(xhr, textStatus, errorThrown) {
+							$('#content').html('Error adding server')
+						}
+					})
 				})
 			})
 
@@ -288,6 +331,10 @@ function main() {
 		$('#a_auth').click(function() {
 			if (sget('auth_token') == false) {
 				$('#content').html(show_login_box())
+
+				$('#a_servers').removeClass('active');
+				$('#a_profile').removeClass('active');
+				$('#a_auth').addClass('active');
 
 				$('#b_signin').click(function() {
 					validate_authentication_token()

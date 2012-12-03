@@ -1,17 +1,17 @@
-
-import base64
 import json
 import requests
 import sys
 
 class APIClient():
-    def __init__(self, logger, host, port):
+    def __init__(self, logger, host, port, user, apikey):
         self.__l = logger
         self.__uri = 'http://%s:%s' % (host, port)
+        self.__user = user
+        self.__key = apikey
         self.__s = requests.session()
 
     def __serialize(self, data):
-        return base64.b64encode(json.dumps(data))
+        return json.dumps(data)
 
     def __request(self, method, path, payload={}):
         response = {}
@@ -19,13 +19,14 @@ class APIClient():
         r = None
         if payload:
             payload = self.__serialize(payload)
+        auth = requests.auth.HTTPBasicAuth(self.__user, self.__key)
         try:
             if method == 'get':
-                r = self.__s.get(url)
+                r = self.__s.get(url, auth=auth)
             elif method == 'post':
-                r = self.__s.post(url, data=payload)
+                r = self.__s.post(url, data=payload, auth=auth)
             elif method == 'delete':
-                r = self.__s.delete(url)
+                r = self.__s.delete(url, auth=auth)
             else:
                 self.__l.error('Invalid request method')
         except requests.exceptions.ConnectionError, e:
@@ -46,23 +47,24 @@ class APIClient():
         response = self.__request(method='get', path='/ping')
         return response['result']
 
-    def get_config(self):
-        response = self.__request(method='get', path='/config')
-        if response['result']:
-            return response['config']
-        else:
-            self.__l.error(response['message'])
-            return {}
-
-    def set_config(self, key, value):
-        payload = {'value': value}
-        response = self.__request(method='post', path='/config/%s' % key, payload=payload)
-        return response['result']
-
     def add_file(self, meta):
-        payload = {'meta': meta}
+        payload = self.__serialize({'meta': meta})
         response = self.__request(method='post', path='/files', payload=payload)
         return response['result']
+
+    def add_index(self, path):
+        payload = self.__serialize({'username': self.__user, 'path': path})
+        response = self.__request(method='post', path='/index/%s' % self.__user, payload=payload)
+        return response['result']
+
+    def remove_index(self, path):
+        payload = {'username': self.__user, 'path': path}
+        response = self.__request(method='delete', path='/index', payload=payload)
+        return response['result']
+
+    def get_indexes(self):
+        response = self.__request(method='get', path='/index/%s' % self.__user)
+        return response
 
     def get_users(self):
         response = self.__request(method='get', path='/users')

@@ -4,22 +4,33 @@ import hashlib
 class must_authenticate(object):
     def __init__(self):
         self.users = None
+        self.servers = None
 
     def __call__(self, f):
         def decorator(*args, **kwargs):
             if not self.users:
                 self.users = args[0].users
+            if not self.servers:
+                self.servers = args[0].servers
 
             (username, password) = bottle.parse_auth(bottle.request.get_header('Authorization'))
-            print('username: '+username+'; password: '+password)
             user = self.users.get(username)
-            if not user:
+            servers = self.servers.get(username)
+            if not user and not servers:
                 bottle.abort(401, 'Access denied')
-            if len(user) != 4:
-                bottle.abort(401, 'Access denied')
-            pwdhash = hashlib.sha512(password).hexdigest()
-            if pwdhash != user['password']:
-                bottle.abort(401, 'Access denied')
+            if servers:
+                if username != user['username']:
+                    bottle.abort(401, 'Access denied')
+                found_key = False
+                for server in servers:
+                    if password == server['apikey']:
+                        found_key = True
+                if not found_key:
+                    bottle.abort(401, 'Access denied')
+            else:
+                pwdhash = hashlib.sha512(password).hexdigest()
+                if pwdhash != user['password'] and password != server['apikey']:
+                    bottle.abort(401, 'Access denied')
             return f(*args, **kwargs)
         return decorator
 

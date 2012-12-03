@@ -3,7 +3,6 @@
 from gevent import monkey; monkey.patch_all()
 
 import argparse
-import base64
 import bottle
 import json
 import logging
@@ -37,14 +36,22 @@ class API:
         self.__l = logger
         self.__listen_ip = listen_ip
         self.__listen_port = listen_port
-        self.config = fileindexer.mongodb.Config(logger)
         self.files = fileindexer.mongodb.Files(logger)
+        self.indexes = fileindexer.mongodb.Indexes(logger)
         self.users = fileindexer.mongodb.Users(logger)
         self.servers = fileindexer.mongodb.Servers(logger)
 
     def __deserialize(self, data):
-        print(base64.urlsafe_b64decode(data))
-        return json.loads(base64.urlsafe_b64decode(data))
+        try:
+            data = eval(json.loads(data))
+        except NameError, e:
+            self.__l.error(e)
+            self.__l.debug(data)
+
+        if len(data) > 0:
+            for k,v in data.items():
+                self.__l.debug('%s: %s' % (k, v))
+        return data
 
     def __get_username(self):
         (username, password) = bottle.parse_auth(bottle.request.get_header('Authorization'))
@@ -76,24 +83,6 @@ class API:
     def test_authentication(self):
         return {'result': True, 'message': 'authenticated'}
 
-    def get_config(self):
-        config = self.config.get_config()
-        if config:
-            return {'result': True, 'config': config}
-        else:
-            return {'result': False, 'message': 'Failed to retrieve configuration'}
-
-    def set_config(self, key):
-        if key in self.__valid_config_items:
-            request = self.__deserialize(bottle.request.body.readline())
-            if 'value' in request:
-                self.config[key] = request['value']
-                return {'result': True, key: request['value']}
-            else:
-                return {'result': False, 'message': 'Failed to set configuration item'}
-        else:
-            return {'result': False, 'message': 'Not a valid configuration item'}
-
     def get_files(self):
         try:
             request = self.__deserialize(bottle.request.body.readline())
@@ -112,6 +101,61 @@ class API:
             return {'result': True, '_id': _id}
         else:
             return {'result': False, 'message': 'Failed to retrieve metadata'}
+
+    @fileindexer.decorators.must_authenticate()
+    def get_indexes(self, username):
+        indexes = []
+        for idx in self.indexes.list(username):
+            del(idx['_id'])
+            indexes.append(idx)
+        
+        if indexes:
+            return {'result': True, 'indexes': indexes}
+        else:
+            return {'result': False, 'message': 'No indexes found'}
+
+    @fileindexer.decorators.must_authenticate()
+    def get_index(self, username):
+        username = self.__get_username()
+        if username != self.__get_username():
+            bottle.abort(401, 'Access denied')
+        idx = self.index.get(request['username'], request['path'])
+        if idx:
+            return {'result': True, 'index': idx}
+        else:
+            return {'result': False, 'message': 'Failed to retrieve index'}
+
+    @fileindexer.decorators.must_authenticate()
+    def update_index(self, username):
+        request = self.__deserialize(bottle.request.body.readline())
+        username = self.__get_username()
+        if request['username'] != username:
+            bottle.abort(401, 'Access denied')
+        self.indexes.update(request)
+        return {'result': True, 'message': 'Index updated'}
+
+    @fileindexer.decorators.must_authenticate()
+    def add_index(self, username):
+        request = self.__deserialize(bottle.request.body.readline())
+        username = self.__get_username()
+        if request['username'] != username:
+            bottle.abort(401, 'Access denied')
+        if 'path' in request:
+            self.indexes.add(request)
+            return {'result': True, 'message': 'Path %s added to indexes' % request['path']}
+        else:
+            return {'result': False, 'message': 'No index info received'}
+
+    @fileindexer.decorators.must_authenticate()
+    def remove_index(self, username):
+        request = self.__deserialize(bottle.request.body.readline())
+        username = self.__get_username()
+        if request['username'] != username:
+            bottle.abort(401, 'Access denied')
+        if self.index.remove(request):
+            return {'result': True, 'message': 'User removed succesfully'}
+        else:
+            return {'result': True, 'message': 'Failed to remove user'}
 
     @fileindexer.decorators.must_authenticate()
     @fileindexer.decorators.must_be_admin()
@@ -156,13 +200,15 @@ class API:
         else:
             return {'result': True, 'message': 'Failed to remove user'}
 
-    def get_servers(self):
+    @fileindexer.decorators.must_authenticate()
+    def get_servers(self, username):
         servers = self.servers.list()
         if servers:
             return {'result': True, 'servers': servers}
         else:
             return {'result': False, 'message': 'No servers defined'}
 
+    @fileindexer.decorators.must_authenticate()
     def get_server(self, server):
         server = self.servers.get(server)
         if server:
@@ -170,13 +216,18 @@ class API:
         else:
             return {'result': False, 'message': 'Failed to retrieve server'}
 
-    def add_server(self):
+    @fileindexer.decorators.must_authenticate()
+    def add_server(self, username):
         request = self.__deserialize(bottle.request.body.readline())
-        if 'server' in request:
-            return {'result': True, 'message': self.servers.add(request['server'])}
+        username = self.__get_username()
+        if request['username'] != username:
+            bottle.abort(401, 'Access denied')
+        if 'hostname' in request:
+            return {'result': True, 'message': self.servers.add(request)}
         else:
             return {'result': False, 'message': 'Failed to add server'}
 
+    @fileindexer.decorators.must_authenticate()
     def remove_server(self, server):
         if self.servers.remove(server):
             return {'result': True, 'message': 'Server removed successfully'}
@@ -218,21 +269,22 @@ def main():
     bottle.route('/css/:filename',   method='GET')    (api.serve_css)
 
     ## API
-    bottle.route('/ping',            method='GET')    (api.ping)
-    bottle.route('/auth',            method='GET')    (api.test_authentication)
-    bottle.route('/config',          method='GET')    (api.get_config)
-    bottle.route('/config/:key',     method='POST')   (api.set_config)
-    bottle.route('/users',           method='GET')    (api.get_users)
-    bottle.route('/users',           method='POST')   (api.add_user)
-    bottle.route('/users/:username', method='GET')    (api.get_user)
-    bottle.route('/users/:username', method='POST')   (api.update_user)
-    bottle.route('/users/:username', method='DELETE') (api.remove_user)
-    bottle.route('/servers',         method='GET')    (api.get_servers)
-    bottle.route('/servers',         method='POST')   (api.add_server)
-    bottle.route('/servers/:server', method='GET')    (api.get_server)
-    bottle.route('/servers/:server', method='DELETE') (api.remove_server)
-    bottle.route('/files',           method='GET')    (api.get_files)
-    bottle.route('/files',           method='POST')   (api.add_file)
+    bottle.route('/ping',                  method='GET')    (api.ping)
+    bottle.route('/auth',                  method='GET')    (api.test_authentication)
+    bottle.route('/users',                 method='GET')    (api.get_users)
+    bottle.route('/users',                 method='POST')   (api.add_user)
+    bottle.route('/users/:username',       method='GET')    (api.get_user)
+    bottle.route('/users/:username',       method='POST')   (api.update_user)
+    bottle.route('/users/:username',       method='DELETE') (api.remove_user)
+    bottle.route('/servers/:username',     method='GET')    (api.get_servers)
+    bottle.route('/servers/:username',     method='POST')   (api.add_server)
+    bottle.route('/servers/:server',       method='GET')    (api.get_server)
+    bottle.route('/servers/:server',       method='DELETE') (api.remove_server)
+    bottle.route('/index/:username',       method='GET')    (api.get_indexes)
+    bottle.route('/index/:username',       method='POST')   (api.add_index)
+    bottle.route('/index',                 method='DELETE') (api.remove_index)
+    bottle.route('/files',                 method='GET')    (api.get_files)
+    bottle.route('/files',                 method='POST')   (api.add_file)
 
     bottle.TEMPLATE_PATH.append('/people/r3boot/fileindexer/templates')
     api.run()

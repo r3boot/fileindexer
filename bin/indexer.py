@@ -1,14 +1,11 @@
 #!/usr/bin/env python
 
 import argparse
-import base64
 import datetime
 import hashlib
-import json
 import logging
 import mimetypes
 import os
-import requests
 import sys
 import threading
 
@@ -31,11 +28,11 @@ ll2str = {
 }
 
 class Indexer(threading.Thread):
-    def __init__(self, logger, api, path):
+    def __init__(self, logger, api, idx):
         threading.Thread.__init__(self)
         self.__l = logger
         self.api = api
-        self.path = path
+        self.path = idx['path']
         self.setDaemon(True)
         self.__t_start = datetime.datetime.now()
 
@@ -89,11 +86,16 @@ def main():
     parser.add_argument('-P', dest='port', action='store',
         default=_d_port, help='Port to connect to, defaults to %s' % _d_port)
 
-    parser.add_argument('--add-path', dest='add_path', action='store',
+    parser.add_argument('--username', dest='username', action='store',
+        default=False, help='Username for API')
+    parser.add_argument('--apikey', dest='apikey', action='store',
+        default=False, help='Key for API')
+
+    parser.add_argument('--add', dest='add_index', action='store',
         default=False, help='Add path to index')
-    parser.add_argument('--del-path', dest='del_path', action='store',
+    parser.add_argument('--del', dest='del_index', action='store',
         default=False, help='Remove path from index')
-    parser.add_argument('--list-paths', dest='list_paths', action='store_true',
+    parser.add_argument('--list', dest='list_indexes', action='store_true',
         default=False, help='Display all indexed paths')
 
     parser.add_argument('--update', dest='update', action='store_true',
@@ -116,61 +118,60 @@ def main():
 
     logger.debug('logging at %s' % ll2str[log_level])
 
-    api = API(logger, args.host, args.port)
+    if not args.username:
+        logger.error('You need to specify a username')
+        return 1
+    if not args.apikey:
+        logger.error('You need to specify an api key')
+        return 1
+
+    api = API(logger, args.host, args.port, args.username, args.apikey)
     if api.ping():
         logger.debug('Connected to API at %s:%s' % (args.host, args.port))
     else:
         logger.error('Failed to connect to API at %s:%s' % (args.host, args.port))
         return
 
-    config = api.get_config()
-
-    if args.list_paths:
-        if not 'paths' in config:
-            logger.error('No paths configured')
+    if args.list_indexes:
+        response = api.get_indexes()
+        if not response['result']:
+            logger.error('Failed to retrieve indexes: %s' % response['message'])
             return 1
         print('==> Indexed paths')
-        for path in config['paths']:
-            print('* %s' % path)
-    elif args.add_path:
-        if 'paths' in config:
-            paths = config['paths']
-        else:
-            paths = []
-        if args.add_path in paths:
-            logger.error('Path already indexed')
-            return 1
-        paths.append(args.add_path)
-        result = api.set_config('paths', paths)
-        if not result:
-            logger.error('Failed to set config.paths')
-            return 1
-    elif args.del_path:
-        if 'paths' in config:
-            if args.del_path in config['paths']:
-                paths = []
-                for path in config['paths']:
-                    if path == args.del_path:
-                        continue
-                    paths.append(path)
-                
-                result = api.set_config('paths', paths)
-                if not result:
-                    logger.error('Failed to set config.paths')
+        for idx in response['indexes']:
+            print('* %s' % idx['path'])
+    elif args.add_index:
+        response = api.get_indexes()
+        if response['result']:
+            for idx in response['indexes']:
+                if args.add_index == idx['path']:
+                    logger.error('Path already indexed')
                     return 1
-            else:
-                logger.error('Path no indexed')
-        else:
-            logger.error('No paths configured')
+
+        result = api.add_index(args.add_index)
+        if not result:
+            logger.error('Failed to add index')
+            return 1
+    elif args.del_index:
+        response = api.get_indexes()
+        if not response['result']:
+            logger.error('Failed to retrieve indexes: %s' % response['message'])
+            return 1
+
+        result = api.remove_index(args.username, args.del_index)
+        if not result:
+            logger.error('Failed to remove index')
+            return 1
     elif args.update:
         mimetypes.init()
         indexers = []
-        if not 'paths' in config:
-            logger.error('No paths found')
+        response = api.get_indexes()
+        if not response['result']:
+            logger.error('Failed to retrieve indexes: %s' % response['message'])
             return 1
-        for path in config['paths']:
-            logger.debug('Starting thread for %s' % path)
-            indexer = Indexer(logger, api, path)
+        for idx in response['indexes']:
+            logger.debug('Starting thread for %s' % idx['path'])
+            indexer = Indexer(logger, api, idx)
             indexer.start()
             indexers.append(indexer)
 
