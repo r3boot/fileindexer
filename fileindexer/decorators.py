@@ -18,19 +18,20 @@ class must_authenticate(object):
             servers = self.servers.get(username)
             if not user and not servers:
                 bottle.abort(401, 'Access denied')
-            if servers:
-                if username != user['username']:
-                    bottle.abort(401, 'Access denied')
-                found_key = False
-                for server in servers:
-                    if password == server['apikey']:
-                        found_key = True
-                if not found_key:
-                    bottle.abort(401, 'Access denied')
-            else:
+            if username != user['username']:
+                print("username != user[username]")
+                bottle.abort(401, 'Access denied')
+            found_key = False
+            for server in servers:
+                if password == server['apikey']:
+                    found_key = True
+            if not found_key:
                 pwdhash = hashlib.sha512(password).hexdigest()
-                if pwdhash != user['password'] and password != server['apikey']:
-                    bottle.abort(401, 'Access denied')
+                if pwdhash == user['password']:
+                     found_key = True
+            if not found_key:
+                print("not found_key")
+                bottle.abort(401, 'Access denied')
             return f(*args, **kwargs)
         return decorator
 
