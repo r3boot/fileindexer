@@ -5,8 +5,8 @@
 - Call rate limiting per source
 
 == Indexer ==
-* plugin-based metadata indexing system
-- hachoir-metadata !
+* plugin-based metadata indexing system [wip]
+- hachoir-metadata [wip]
 
 == Web interface ==
 * Keep playing with interface styles untill I find something cool
