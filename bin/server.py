@@ -49,6 +49,7 @@ class API:
             self.__l.debug(data)
 
         if len(data) > 0:
+            print(data)
             for k,v in data.items():
                 self.__l.debug('%s: %s' % (k, v))
         return data

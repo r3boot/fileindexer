@@ -6,6 +6,7 @@ import hashlib
 import logging
 import mimetypes
 import os
+import stat
 import sys
 import threading
 
@@ -40,7 +41,7 @@ class Indexer(threading.Thread):
         num_files = self.index(self.path)
         t_end = datetime.datetime.now()
         t_total = t_end - self.__t_start
-        self.__l.debug('Finished indexing %s in %s (%s files)' % (self.path, t_total, num_files))
+        self.__l.info('Finished indexing %s in %s (%s files)' % (self.path, t_total, num_files))
 
     def index(self, path):
         num_files = 0
@@ -54,7 +55,7 @@ class Indexer(threading.Thread):
     def add(self, parent, path):
         meta = {}
         try:
-            stat = os.stat(path)
+            st = os.stat(path)
         except OSError, e:
             self.__l.error(e)
             return
@@ -62,17 +63,20 @@ class Indexer(threading.Thread):
         meta['path'] = path
         meta['_id'] = hashlib.sha1(path).hexdigest()
         meta['parent'] = parent
-        meta['mode'] = stat.st_mode
-        meta['uid'] = stat.st_uid
-        meta['gid'] = stat.st_gid
-        meta['size'] = stat.st_size
-        meta['atime'] = stat.st_atime
-        meta['mtime'] = stat.st_mtime
-        meta['ctime'] = stat.st_ctime
-        try:
-            meta['mime'] = mimetypes.guess_type(path)[0]
-        except:
-            meta['mime'] = False
+        meta['mode'] = st.st_mode
+        meta['uid'] = st.st_uid
+        meta['gid'] = st.st_gid
+        meta['size'] = st.st_size
+        meta['atime'] = st.st_atime
+        meta['mtime'] = st.st_mtime
+        meta['ctime'] = st.st_ctime
+        if stat.S_ISDIR(st.st_mode):
+            try:
+                meta['mime'] = mimetypes.guess_type(path)[0]
+                #if meta['mime'] == None:
+                #    meta['mime'] = 'unknown'
+            except:
+                meta['mime'] = 'unknown'
 
         self.api.add_file(meta)
 
