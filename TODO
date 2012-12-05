@@ -1,0 +1,16 @@
+== API ==
+* resource monitoring / limiting
+- Block after N failed auth attemts per source using an exponential backoff algorithm
+- Implement per source / per call limits
+- Call rate limiting per source
+
+== Indexer ==
+* plugin-based metadata indexing system
+- hachoir-metadata !
+
+== Web interface ==
+* Keep playing with interface styles untill I find something cool
+* popups with an transparent & darkened overlay over the content below it
+* Consistency!
+* More and proper api -> user messaging
+* More error handling
