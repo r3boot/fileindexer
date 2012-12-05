@@ -13,6 +13,7 @@ import threading
 sys.path.append('/people/r3boot/fileindexer')
 
 from fileindexer.api.client import APIClient as API
+from fileindexer.indexer import Indexer
 
 __description__ = 'Add description'
 
@@ -27,58 +28,6 @@ ll2str = {
     40: 'ERROR',
     50: 'CRITICAL'
 }
-
-class Indexer(threading.Thread):
-    def __init__(self, logger, api, idx):
-        threading.Thread.__init__(self)
-        self.__l = logger
-        self.api = api
-        self.path = idx['path']
-        self.setDaemon(True)
-        self.__t_start = datetime.datetime.now()
-
-    def run(self):
-        num_files = self.index(self.path)
-        t_end = datetime.datetime.now()
-        t_total = t_end - self.__t_start
-        self.__l.info('Finished indexing %s in %s (%s files)' % (self.path, t_total, num_files))
-
-    def index(self, path):
-        num_files = 0
-        for (parent, dirs, files) in os.walk(path):
-            for f in files:
-                num_files += 1
-                full_path = '%s/%s' % (parent, f)
-                self.add(parent, full_path.encode('UTF-8'))
-        return num_files
-
-    def add(self, parent, path):
-        meta = {}
-        try:
-            st = os.stat(path)
-        except OSError, e:
-            self.__l.error(e)
-            return
-
-        meta['path'] = path
-        meta['_id'] = hashlib.sha1(path).hexdigest()
-        meta['parent'] = parent
-        meta['mode'] = st.st_mode
-        meta['uid'] = st.st_uid
-        meta['gid'] = st.st_gid
-        meta['size'] = st.st_size
-        meta['atime'] = st.st_atime
-        meta['mtime'] = st.st_mtime
-        meta['ctime'] = st.st_ctime
-        if stat.S_ISDIR(st.st_mode):
-            try:
-                meta['mime'] = mimetypes.guess_type(path)[0]
-                #if meta['mime'] == None:
-                #    meta['mime'] = 'unknown'
-            except:
-                meta['mime'] = 'unknown'
-
-        self.api.add_file(meta)
 
 def main():
     parser = argparse.ArgumentParser(description=__description__)

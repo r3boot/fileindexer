@@ -76,7 +76,11 @@ class Files(MongoAPI):
     def add(self, meta):
         if not self.get(meta['path']):
             meta['last_modified'] = datetime.datetime.utcnow()
-            self.collection.save(meta)
+            try:
+                self.collection.save(meta)
+            except pymongo.connection.InvalidDocument, e:
+                self.__l.error(e)
+                self.__l.error(meta)
             self.__l.debug('%s stored' % meta['path'])
             return meta['_id']
         self.__l.debug('%s already in store' % meta['path'])
