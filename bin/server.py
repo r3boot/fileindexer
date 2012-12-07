@@ -81,7 +81,7 @@ class API:
         return {'result': True, 'message': 'pong'}
 
     @fileindexer.decorators.must_authenticate()
-    def test_authentication(self):
+    def test_authentication(self, *args, **kwargs):
         return {'result': True, 'message': 'authenticated'}
 
     def get_files(self):
@@ -104,7 +104,8 @@ class API:
             return {'result': False, 'message': 'Failed to retrieve metadata'}
 
     @fileindexer.decorators.must_authenticate()
-    def get_indexes(self, username):
+    def get_indexes(self, *args, **kwargs):
+        username = self.__get_username()
         indexes = []
         for idx in self.indexes.list(username):
             del(idx['_id'])
@@ -116,8 +117,9 @@ class API:
             return {'result': False, 'message': 'No indexes found'}
 
     @fileindexer.decorators.must_authenticate()
-    def get_index(self, username):
+    def get_index(self, *args, **kwargs):
         username = self.__get_username()
+        request = self.__deserialize(bottle.request.body.readline())
         if username != self.__get_username():
             bottle.abort(401, 'Access denied')
         idx = self.index.get(request['username'], request['path'])
@@ -127,7 +129,7 @@ class API:
             return {'result': False, 'message': 'Failed to retrieve index'}
 
     @fileindexer.decorators.must_authenticate()
-    def update_index(self, username):
+    def update_index(self, *args, **kwargs):
         request = self.__deserialize(bottle.request.body.readline())
         username = self.__get_username()
         if request['username'] != username:
@@ -136,7 +138,7 @@ class API:
         return {'result': True, 'message': 'Index updated'}
 
     @fileindexer.decorators.must_authenticate()
-    def add_index(self, username):
+    def add_index(self, *args, **kwargs):
         request = self.__deserialize(bottle.request.body.readline())
         username = self.__get_username()
         if request['username'] != username:
@@ -148,7 +150,7 @@ class API:
             return {'result': False, 'message': 'No index info received'}
 
     @fileindexer.decorators.must_authenticate()
-    def remove_index(self, username):
+    def remove_index(self, *args, **kwargs):
         request = self.__deserialize(bottle.request.body.readline())
         username = self.__get_username()
         if request['username'] != username:
@@ -160,7 +162,7 @@ class API:
 
     @fileindexer.decorators.must_authenticate()
     @fileindexer.decorators.must_be_admin()
-    def get_users(self):
+    def get_users(self, *args, **kwargs):
         users = self.users.list()
         if users:
             return {'result': True, 'users': users}
@@ -168,7 +170,8 @@ class API:
             return {'result': False, 'message': 'No users found'}
 
     @fileindexer.decorators.must_authenticate()
-    def get_user(self, username):
+    def get_user(self, *args, **kwargs):
+        username = args[0]
         user = self.users.get(username)
         if user:
             return {'result': True, 'user': user}
@@ -176,7 +179,7 @@ class API:
             return {'result': False, 'message': 'Failed to retrieve userdata'}
 
     @fileindexer.decorators.must_authenticate()
-    def update_user(self, username):
+    def update_user(self, *args, **kwargs):
         request = self.__deserialize(bottle.request.body.readline())
         username = self.__get_username()
         if request['username'] != username:
@@ -186,7 +189,7 @@ class API:
 
     @fileindexer.decorators.must_authenticate()
     @fileindexer.decorators.must_be_admin()
-    def add_user(self):
+    def add_user(self, *args, **kwargs):
         request = self.__deserialize(bottle.request.body.readline())
         if 'user' in request:
             return {'result': True, 'message': self.users.add(request['user'])}
@@ -195,14 +198,15 @@ class API:
 
     @fileindexer.decorators.must_authenticate()
     @fileindexer.decorators.must_be_admin()
-    def remove_user(self, username):
+    def remove_user(self, *args, **kwargs):
+        username = args[0]
         if self.users.remove(username):
             return {'result': True, 'message': 'User removed succesfully'}
         else:
             return {'result': True, 'message': 'Failed to remove user'}
 
     @fileindexer.decorators.must_authenticate()
-    def get_servers(self, username):
+    def get_servers(self, *args, **kwargs):
         servers = self.servers.list()
         if servers:
             return {'result': True, 'servers': servers}
@@ -210,7 +214,8 @@ class API:
             return {'result': False, 'message': 'No servers defined'}
 
     @fileindexer.decorators.must_authenticate()
-    def get_server(self, server):
+    def get_server(self, *args, **kwargs):
+        server = args[0]
         server = self.servers.get(server)
         if server:
             return {'result': True, 'server': server}
@@ -218,7 +223,7 @@ class API:
             return {'result': False, 'message': 'Failed to retrieve server'}
 
     @fileindexer.decorators.must_authenticate()
-    def add_server(self, username):
+    def add_server(self, *args, **kwargs):
         request = self.__deserialize(bottle.request.body.readline())
         username = self.__get_username()
         if request['username'] != username:
@@ -229,7 +234,8 @@ class API:
             return {'result': False, 'message': 'Failed to add server'}
 
     @fileindexer.decorators.must_authenticate()
-    def remove_server(self, server):
+    def remove_server(self, *args, **kwargs):
+        server = args[0]
         if self.servers.remove(server):
             return {'result': True, 'message': 'Server removed successfully'}
         else:

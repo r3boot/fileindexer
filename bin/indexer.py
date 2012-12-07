@@ -1,14 +1,9 @@
 #!/usr/bin/env python
 
 import argparse
-import datetime
-import hashlib
 import logging
 import mimetypes
-import os
-import stat
 import sys
-import threading
 
 sys.path.append('/people/r3boot/fileindexer')
 
@@ -20,6 +15,7 @@ __description__ = 'Add description'
 _d_debug = False
 _d_host = '127.0.0.1'
 _d_port = '5423'
+_d_quality = 0.5
 
 ll2str = {
     10: 'DEBUG',
@@ -54,6 +50,12 @@ def main():
     parser.add_argument('--update', dest='update', action='store_true',
         default=False, help='(Re)index all paths')
 
+    parser.add_argument('--no-stat', dest='no_stat', action='store_true',
+        default=False, help='Do not store stat() information')
+    parser.add_argument('--no-meta', dest='no_meta', action='store_true',
+        default=False, help='Do not store file metadata')
+    parser.add_argument('--quality', dest='quality', action='store', type=float,
+        default=_d_quality, help='Quality of metadata scan (0.0(low) .. 1.0(high))')
     args = parser.parse_args()
 
     logger = logging.getLogger('main')

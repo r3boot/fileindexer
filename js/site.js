@@ -37,13 +37,14 @@ function validate_authentication_token() {
 	console.log('basic_auth_token: '+basic_auth_token)
 
 	$.ajax({
-		url: "/auth",
+		url: '/auth',
 		type: 'get',
 		data: {},
+		headers: {'Authorization': 'Basic ' + basic_auth_token},
 		dataType: 'json',
-		beforeSend : function(req) {
+		/*beforeSend : function(req) {
 			req.setRequestHeader('Authorization', 'Basic ' + basic_auth_token)
-		},
+		},*/
 		success: function(response) {
 			if (response['result']) {
 				sset('auth_token', basic_auth_token)

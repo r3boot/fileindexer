@@ -12,12 +12,18 @@ import stat
 import threading
 
 class HachoirMetadataParser:
+    #__unparseable = ['nfo', 'cue', 'diz', 'message', 'log', 'lsm', 'com', 'int', 'sub', 'mar', 'idx', 'bin', 'def', 'for', 'in', '1', 'l', 'str', 'nzb', 'obj', 'CUE']
+
     def __init__(self, logger):
         self.__l = logger
         self.charset = hachoir_core.i18n.getTerminalCharset()
 
     def extract(self, filename, quality, decoder):
         """this code comes from processFile in hachoir-metadata"""
+        #fn, ext = os.path.splitext(filename)
+        #if ext in self.__unparseable:
+        #    return False
+
         filename, real_filename = hachoir_core.cmd_line.unicodeFilename(filename, self.charset), filename
 
         # Create parser
@@ -291,6 +297,7 @@ class Indexer(threading.Thread):
 
     def add(self, parent, path):
         meta = {}
+        meta['index'] = self.path
         meta['path'] = path
         meta['_id'] = hashlib.sha1(path).hexdigest()
         meta['parent'] = parent
@@ -329,7 +336,5 @@ class Indexer(threading.Thread):
                     if hmp_meta:
                         for k,v in hmp_meta.items():
                             meta[k] = v
-            else:
-                self.__l.error('No metadata found for %s' % path)
 
         self.api.add_file(meta)

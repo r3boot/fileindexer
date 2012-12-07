@@ -16,14 +16,17 @@ class must_authenticate(object):
             (username, password) = bottle.parse_auth(bottle.request.get_header('Authorization'))
             user = self.users.get(username)
             servers = self.servers.get(username)
+            server = None
+
             if not user and not servers:
                 bottle.abort(401, 'Access denied')
             if username != user['username']:
                 print("username != user[username]")
                 bottle.abort(401, 'Access denied')
             found_key = False
-            for server in servers:
-                if password == server['apikey']:
+            for s in servers:
+                if password == s['apikey']:
+                    server = s
                     found_key = True
             if not found_key:
                 pwdhash = hashlib.sha512(password).hexdigest()
@@ -32,7 +35,7 @@ class must_authenticate(object):
             if not found_key:
                 print("not found_key")
                 bottle.abort(401, 'Access denied')
-            return f(*args, **kwargs)
+            return f(*args, server=server, **kwargs)
         return decorator
 
 class must_be_admin(object):
