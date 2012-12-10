@@ -53,8 +53,12 @@ class APIClient():
         response = self.__request(method='post', path='/files', payload=payload)
         return response['result']
 
-    def add_index(self, path):
+    def add_index(self, path, name, description):
         payload = {'path': path}
+        if name:
+            payload['name'] = name
+        if description:
+            payload['description'] = description
         response = self.__request(method='post', path='/index', payload=payload)
         return response['result']
 

@@ -69,7 +69,7 @@ def main():
     bottle.route('/servers', method='GET')    (api.get_servers)
     bottle.route('/servers', method='POST')   (api.add_server)
     bottle.route('/servers', method='DELETE') (api.remove_server)
-    bottle.route('/server',  method='GET')    (api.get_server)
+    bottle.route('/server',  method='PUT')    (api.get_server)
     bottle.route('/server',  method='POST')   (api.update_server)
     bottle.route('/index',   method='GET')    (api.get_indexes)
     bottle.route('/index',   method='POST')   (api.add_index)

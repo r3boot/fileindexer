@@ -40,6 +40,10 @@ def main():
 
     parser.add_argument('--add', dest='add_index', action='store',
         default=False, help='Add path to index')
+    parser.add_argument('--name', dest='add_index_name', action='store',
+        default=False, help='Name for new index')
+    parser.add_argument('--description', dest='add_index_descr', action='store',
+        default=False, help='Description for new index')
     parser.add_argument('--del', dest='del_index', action='store',
         default=False, help='Remove path from index')
     parser.add_argument('--list', dest='list_indexes', action='store_true',
@@ -98,7 +102,7 @@ def main():
                     logger.error('Path already indexed')
                     return 1
 
-        result = api.add_index(args.add_index)
+        result = api.add_index(args.add_index, args.add_index_name, args.add_index_descr)
         if not result:
             logger.error('Failed to add index')
             return 1

@@ -172,9 +172,7 @@ class Servers(MongoAPI):
         self.__l = logger
 
     def list(self):
-        servers = []
-        for server in self.collection.find():
-            servers.append(server)
+        servers = list(self.collection.find())
         return servers
 
     def get(self, apikey):
@@ -185,12 +183,14 @@ class Servers(MongoAPI):
         servers = list(self.collection.find({'username': username}))
         return servers
 
+    def get_by_hostname(self, hostname):
+        servers = list(self.collection.find({'hostname': hostname}))
+        return servers
+
     def add(self, meta):
         meta['_id'] = meta['hostname']
         meta['apikey'] = str(uuid.uuid4())
         return self.collection.save(meta)
 
     def remove(self, hostname):
-        if hostname in self.list():
-            self.collection.remove({'hostname': hostname})
-            return True
+        return self.collection.remove({'hostname': hostname})

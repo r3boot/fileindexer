@@ -197,9 +197,11 @@ class APIServer:
 
     @fileindexer.decorators.must_authenticate()
     def get_server(self, *args, **kwargs):
-        servers = self.servers.get_by_username(kwargs['username'])
-        if servers:
-            return {'result': True, 'servers': servers}
+        request = self.__deserialize(bottle.request.body.readline())
+        if 'hostname' in request:
+            server = self.servers.get_by_hostname(request['hostname'])
+        if server:
+            return {'result': True, 'server': server}
         else:
             return {'result': False, 'message': 'Failed to retrieve server'}
 
@@ -217,8 +219,9 @@ class APIServer:
 
     @fileindexer.decorators.must_authenticate()
     def remove_server(self, *args, **kwargs):
-        server = args[0]
-        if self.servers.remove(server):
+        request = self.__deserialize(bottle.request.body.readline())
+        if 'hostname' in request:
+            self.servers.remove(request['hostname'])
             return {'result': True, 'message': 'Server removed successfully'}
         else:
-            return {'result': False, 'message': 'Failed to remove server'}
+            return {'result': False, 'message': 'Invalid request'}

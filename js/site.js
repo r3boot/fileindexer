@@ -139,9 +139,14 @@ function get_profile() {
 
 }
 
-function get_index(server, idx, p) {
+function get_index(server, name, idx, p) {
+	var name = unescape(name)
 	var idx = unescape(idx)
 	var p = unescape(p)
+
+	console.log('name: '+name)
+	console.log('idx: '+idx)
+	console.log('p: '+p)
 
 	$.ajax({
 		url: '/files',
@@ -160,14 +165,10 @@ function get_index(server, idx, p) {
 					var mime = response['files'][i]['mime']
 					var ep = escape(path)
 					content += '<tr>'
-					content += '<td width=\"50\">'
-					content += '<i class=\"icon-download\" />&nbsp;'
-					content += '<i class=\"icon-shopping-cart\" />&nbsp;'
-					content += '<i class=\"icon-qrcode\" />'
-					content += '</td>'
-					content += '<td onclick=\"get_index(\''+server+'\', \''+idx+'\', \''+ep+'\')\">'
+					content += '<td onclick=\"get_index(\''+server+'\', \''+name+'\', \''+idx+'\', \''+ep+'\')\">'
 					if (is_dir(mode) == true) {
 						content += '<i class=\"icon-folder-open\" />&nbsp;'
+						content += '<i class=\"icon-shopping-cart\" />&nbsp;'
 					} else {
 						if (is_archive(mime)) {
 							content += '<i class=\"icon-gift\" />&nbsp;'
@@ -181,22 +182,24 @@ function get_index(server, idx, p) {
 							content += '<i class=\"icon-file\" />&nbsp;'
 							console.log('mime: '+mime)
 						}
+						content += '<i class=\"icon-shopping-cart\" />&nbsp;'
+						content += '<i class=\"icon-download\" />&nbsp;'
 					}
 					content += path
 					content += '</td>'
 					content += '</tr>'
 				}
 
-				var nav_path = '<span onclick=\"get_indexes()\">'+server+'</span>:'
+				var nav_path = '<span onclick=\"get_indexes()\">'+server+'</span> -> '
 				if (idx == p) {
-					nav_path += '<span onclick=\"get_index(\''+server+'\', \''+escape(idx)+'\', \''+escape(idx)+'\')\">'+idx+'</span>'
+					nav_path += '<span onclick=\"get_index(\''+server+'\', \''+name+'\', \''+escape(idx)+'\', \''+escape(idx)+'\', \''+escape(idx)+'\')\">'+name+'</span>'
 				} else {
-					nav_path += '<span onclick=\"get_index(\''+server+'\', \''+escape(idx)+'\', \''+escape(idx)+'\')\">'+idx+'</span>'
+					nav_path += '<span onclick=\"get_index(\''+server+'\', \''+name+'\', \''+escape(idx)+'\', \''+escape(idx)+'\', \''+escape(idx)+'\')\">'+name+'</span>'
 					tp = idx
 					t = p.replace(idx+'/', '').split('/')
 					for (var i=0; i<t.length; i++) {
 						tp += '/'+t[i]
-						nav_path += '/<span onclick=\"get_index(\''+server+'\', \''+escape(idx)+'\', \''+escape(tp)+'\')\">'+t[i]+'</span>'
+						nav_path += '-> <span onclick=\"get_index(\''+server+'\', \''+name+'\', \''+escape(idx)+'\', \''+escape(tp)+'\')\">'+t[i]+'</span>'
 					}
 				}
 
@@ -211,10 +214,6 @@ function get_index(server, idx, p) {
 			$('content').html('unable to retrieve index')
 		}
 	})
-}
-
-function get_mime_icon(mimetype) {
-
 }
 
 function get_indexes() {
@@ -232,13 +231,17 @@ function get_indexes() {
 				for (var i=0; i < response['indexes'].length; i++) {
 					var server = response['indexes'][i]['server']
 					var path = response['indexes'][i]['path']
+					var name = response['indexes'][i]['name']
+					var description = response['indexes'][i]['description']
 					var ep = escape(path)
 					var username = response['indexes'][i]['username']
+
 					content += '<tr>'
-					content += '<td onclick=\"get_index(\''+server+'\', \''+path+'\', \''+ep+'\')\">'+server+'</td>'
-					content += '<td onclick=\"get_index(\''+server+'\', \''+path+'\', \''+ep+'\')\">'+path+'</td>'
-					content += '<td onclick=\"get_index(\''+server+'\', \''+path+'\', \''+ep+'\')\">0</td>'
-					content += '<td onclick=\"get_index(\''+server+'\', \''+path+'\', \''+ep+'\')\">'+username+'</td>'
+					content += '<td onclick=\"get_index(\''+server+'\', \''+name+'\', \''+path+'\', \''+ep+'\')\">'+server+'</td>'
+					content += '<td onclick=\"get_index(\''+server+'\', \''+name+'\', \''+path+'\', \''+ep+'\')\">'+name+'</td>'
+					content += '<td onclick=\"get_index(\''+server+'\', \''+name+'\', \''+path+'\', \''+ep+'\')\">'+description+'</td>'
+					content += '<td onclick=\"get_index(\''+server+'\', \''+name+'\', \''+path+'\', \''+ep+'\')\">0</td>'
+					content += '<td onclick=\"get_index(\''+server+'\', \''+name+'\', \''+path+'\', \''+ep+'\')\">'+username+'</td>'
 					content += '</tr>'
 				}
 				$('#t_indexes_tbody').html(content)
@@ -247,7 +250,60 @@ function get_indexes() {
 			}
 		},
 		error: function(xhr, textStatus, errorThrown) { 
-			 $('content').html('unable to retrieve indexes')
+			 $('#content').html('unable to retrieve indexes')
+		}
+	})
+}
+
+function edit_server(server) {
+	$('#content').html(show_edit_server_box())
+
+	$.ajax({
+		url: '/server',
+		type: 'put',
+		data: JSON.stringify({'hostname': server}),
+		headers: {'Authorization': 'Basic ' + sget('auth_token')},
+		dataType: 'json',
+		success: function(response) {
+			console.log(response)
+			if (response['result'] == true) {
+				var hostname = response['server'][0]['hostname']
+				$('#i_hostname').val(hostname)
+			} else {
+				$('#content').html(response['message'])
+			}
+		},
+		error: function(xhr, textStatus, errorThrown) {
+			$('#content').html('unable to retrieve indexes')
+		}
+	})
+
+	$('#b_update_server').click(function() {
+
+	})
+
+	$('#b_rewrites').click(function() {
+	})
+}
+
+function remove_server(server) {
+	$.ajax({
+		url: '/servers',
+		type: 'delete',
+		data: JSON.stringify({'hostname': server}),
+		headers: {'Authorization': 'Basic ' + sget('auth_token')},
+		dataType: 'json',
+		success: function(response) {
+			if (response['result'] == true) {
+				console.log('server removed')
+				show_servers_box()
+			} else {
+				console.log(response['message'])
+				$('#content').html('unable to remove server')
+			}
+		},
+		error: function(xhr, textStatus, errorThrown) {
+			$('#content').html('unable to remove server')
 		}
 	})
 }
@@ -272,6 +328,7 @@ function show_search_page() {
 	content += "<tr><thead>"
 	content += "<th>Server</th>"
 	content += "<th>Index</th>"
+	content += "<th>Description</th>"
 	content += "<th># Files</th>"
 	content += "<th>Operator</th>"
 	content += "</thead></tr>"
@@ -339,21 +396,81 @@ function show_profile_box() {
 }
 
 function show_servers_box() {
+
 	var content = "<form class=\"form-servers\">"
-	content += "<h2 class=\"form-servers-heading\">Edit servers for "+sget('username')+"</h2>"
-	content += "<div id=\"servers_content\"></div>"
-	content += "<button class=\"btn btn-large btn-primary\" type=\"button\" id=\"b_add_new_server\">Add server</button>&nbsp;"
+	content += '<h2 class=\"form-servers-heading\">Edit servers for '+sget('username')+'</h2>'
+	content += '<div id=\"servers_content\"></div>'
+	content += '<button class=\"btn\" id=\"b_add_new_server\"><i class=\"icon-plus\"/> Add server</button>'
 	content += "</form>"
-	return content
+
+	$('#content').html(content)
+
+	$.ajax({
+		url: '/servers',
+		type: 'get',
+		headers: {'Authorization': 'Basic ' + sget('auth_token')},
+		dataType: 'json',
+		success: function(response) {
+			if (response['result']) {
+				$('#servers_content').html(show_servers_table())
+				var content = ''
+
+				for (var i=0; i<response['servers'].length; i++) {
+					var hostname = response['servers'][i]['hostname']
+					var apikey = response['servers'][i]['apikey']
+
+					content += '<tr>'
+					content += '<td onclick=\"edit_server(\''+hostname+'\')\">'+hostname+'</td>'
+					content += '<td onclick=\"edit_server(\''+hostname+'\')\">'+apikey+'</td>'
+					content += '<td><i class=\"icon-remove-circle\" onclick=\"remove_server(\''+hostname+'\')\"></td>'
+					content += '</tr>'
+				}
+				$('#t_servers_content').html(content)
+
+			} else {
+				$('#servers_content').html('no servers found')
+			}
+		},
+		error: function(xhr, textStatus, errorThrown) {
+			$('#servers_content').html('Failed to fetch servers')
+		}
+	})
+
+	$('#b_add_new_server').click(function() {
+		$('#content').html(show_add_server_box())
+
+		$('#b_add_new_server').click(function() {
+			var hostname = $('#i_hostname').val()
+			var meta = {'hostname': hostname, 'username': sget('username')}
+
+			$.ajax({
+				url: '/servers',
+				type: 'post',
+				headers: {'Authorization': 'Basic ' + sget('auth_token')},
+				data: JSON.stringify(meta),
+				dataType: 'json',
+				success: function(response) {
+					if (response['result']) {
+						show_servers_box()
+					} else {
+						$('#content').html('Failed to add server')
+					}
+				},
+				error: function(xhr, textStatus, errorThrown) {
+					$('#content').html('Error adding server')
+				}
+			})
+		})
+	})
 }
 
 function show_servers_table() {
-	var content = "<table class=\"table-servers\">"
+	var content = "<table class=\"table table-hover\">"
 	content += "<thead><tr>"
 	content += "<th>Hostname</th>"
 	content += "<th>Api key</th>"
 	content += "</tr></thead>"
-	content += "<tbody id=\"table_servers_content\"></tbody>"
+	content += "<tbody id=\"t_servers_content\"></tbody>"
 	content += "</table>"
 	return content
 }
@@ -361,12 +478,27 @@ function show_servers_table() {
 function show_add_server_box() {
 	var content = "<form class=\"form-servers\">"
 	content += "<h2 class=\"form-servers-heading\">Add server for "+sget('username')+"</h2>"
-	content += "<table class=\"table-servers\">"
+	content += "<table class=\"table\">"
 	content += "<tr><td>Fqdn or ip</td>"
 	content += "<td><input type=\"text\" class=\"input-block-level\" id=\"i_hostname\" /></td></tr>"
 	content += "</table>"
-	content += "<button class=\"btn btn-large btn-primary\" type=\"button\" id=\"b_add_new_server\">Add</button>&nbsp;"
+	content += "<button class=\"btn\" id=\"b_add_new_server\"><i class=\"icon-plus\" />Add</button>"
 	content += "</form>"
+	return content
+}
+
+function show_edit_server_box() {
+	var content = '<form class=\"form-servers\">'
+	content += '<h2 class=\"form-servers-heading\">Edit server</h2>'
+	content += '<table class=\"table\">'
+	content += '<tr>'
+	content += '<td>Fqdn or ip</td>'
+	content += '<td><input type=\"text\" class=\"input-block-level\" id=\"i_hostname\" /></td></tr>'
+	content += '</tr>'
+	content += '</table>'
+	content += "<button class=\"btn\" id=\"b_update_server\"><i class=\"icon-plus\" />Update</button>"
+	content += "<button class=\"btn\" id=\"b_rewrites\"><i class=\"icon-filter\" />Rewrites</button>"
+	content += '</form>'
 	return content
 }
 
@@ -451,73 +583,11 @@ function main() {
 		})
 
 		$('#a_servers').click(function() {
-			$('#content').html(show_servers_box())
-
-			$.ajax({
-				url: '/servers',
-				type: 'get',
-				headers: {'Authorization': 'Basic ' + sget('auth_token')},
-				dataType: 'json',
-				success: function(response) {
-					if (response['result']) {
-						$('#servers_content').html(show_servers_table())
-						var content = ''
-
-						for (var i=0; i<response['servers'].length; i++) {
-							content += '<tr>'
-							content += '<td>'+response['servers'][i]['hostname']+'</td>'
-							content += '<td>'+response['servers'][i]['apikey']+'</td>'
-							content += '</tr>'
-						}
-						$('#table_servers_content').html(content)
-
-					} else {
-						$('#servers_content').html('no servers found')
-					}
-				},
-				error: function(xhr, textStatus, errorThrown) {
-					$('#servers_content').html('Failed to fetch servers')
-				}
-			})
+			show_servers_box()
 
 			$('#a_servers').addClass('active');
 			$('#a_profile').removeClass('active');
 			$('#a_auth').removeClass('active');
-
-			$('#b_add_new_server').click(function() {
-				$('#content').html(show_add_server_box())
-
-				$('#b_add_new_server').click(function() {
-					var hostname = $('#i_hostname').val()
-					var meta = {'hostname': hostname, 'username': sget('username')}
-
-					$.ajax({
-						url: '/servers',
-						type: 'post',
-						headers: {'Authorization': 'Basic ' + sget('auth_token')},
-						data: JSON.stringify(meta),
-						dataType: 'json',
-						success: function(response) {
-							if (response['result']) {
-								$('#content').html('Successfully added server')
-							} else {
-								$('#content').html('Failed to add server')
-							}
-						},
-						error: function(xhr, textStatus, errorThrown) {
-							$('#content').html('Error adding server')
-						}
-					})
-				})
-			})
-
-			$('#b_add_new_rewrite').click(function() {
-				$('#content').html(show_add_rewrite_box())
-
-				$('#b_add_new_rewrite').click(function() {
-					console.log("add rewrite")
-				})
-			})
 
 		})
 

@@ -5,8 +5,7 @@
 - Call rate limiting per source
 
 == Indexer ==
-* plugin-based metadata indexing system [wip]
-- hachoir-metadata [wip]
+* file checksum
 
 == Web interface ==
 * Keep playing with interface styles untill I find something cool
@@ -14,3 +13,6 @@
 * Consistency!
 * More and proper api -> user messaging
 * More error handling
+
+== Architecture ==
+* Try to switch over to whoosh
