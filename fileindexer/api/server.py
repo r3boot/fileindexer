@@ -21,7 +21,6 @@ class APIServer:
 
     def __deserialize(self, data):
         try:
-            #data = eval(json.loads(data))
             data = json.loads(data)
         except NameError, e:
             self.__l.error(e)
@@ -62,16 +61,16 @@ class APIServer:
     def test_authentication(self, *args, **kwargs):
         return {'result': True, 'message': 'authenticated'}
 
-    def get_files(self):
-        try:
-            request = self.__deserialize(bottle.request.body.readline())
-        except ValueError:
-            request = {}
-        config = self.config.get_config()
-        if 'root' in request:
-            return {'result': False, 'message': 'FNI'}
+    def get_files(self, *args, **kwargs):
+        request = self.__deserialize(bottle.request.body.readline())
+        if 'parent' in request:
+            files = []
+            for f in self.files.get(request['parent']):
+                f['last_modified'] = f['last_modified'].isoformat()
+                files.append(f)
+            return {'result': True, 'files': files}
         else:
-            return {'result': True, 'files': config['paths']}
+            return {'result': False, 'message': 'invalid index'}
 
     def add_file(self):
         request = self.__deserialize(bottle.request.body.readline())
@@ -200,7 +199,6 @@ class APIServer:
     @fileindexer.decorators.must_authenticate()
     def add_server(self, *args, **kwargs):
         request = self.__deserialize(bottle.request.body.readline())
-        username = kwargs['username']
         if 'hostname' in request:
             return {'result': True, 'message': self.servers.add(request)}
         else:

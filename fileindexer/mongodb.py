@@ -69,9 +69,9 @@ class Files(MongoAPI):
         MongoAPI.__init__(self, logger, 'files')
         self.__l = logger
 
-    def get(self, path):
-        result = self.collection.find({'path': path})
-        return 'path' in result
+    def get(self, parent):
+        result = list(self.collection.find({'parent': parent}))
+        return result
 
     def add(self, meta):
         if not self.get(meta['path']):

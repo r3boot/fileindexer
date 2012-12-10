@@ -281,19 +281,24 @@ class Indexer(threading.Thread):
         self.__t_start = datetime.datetime.now()
 
     def run(self):
-        num_files = self.index(self.path)
+        (num_files, num_dirs) = self.index(self.path)
         t_end = datetime.datetime.now()
         t_total = t_end - self.__t_start
-        self.__l.info('Finished indexing %s in %s (%s files)' % (self.path, t_total, num_files))
+        self.__l.info('Finished indexing %s in %s (%s files, %s dirs)' % (self.path, t_total, num_files, num_dirs))
 
     def index(self, path):
         num_files = 0
+        num_dirs = 0
         for (parent, dirs, files) in os.walk(path):
-            for f in files:
-                num_files += 1
-                full_path = '%s/%s' % (parent, f)
+            #for f in files:
+            #    num_files += 1
+            #    full_path = os.path.join(parent, f)
+            #    self.add(parent, full_path.encode('UTF-8'))
+            for d in dirs:
+                num_dirs += 1
+                full_path = os.path.join(parent, d)
                 self.add(parent, full_path.encode('UTF-8'))
-        return num_files
+        return (num_files, num_dirs)
 
     def add(self, parent, path):
         meta = {}

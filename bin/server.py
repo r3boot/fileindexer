@@ -73,7 +73,7 @@ def main():
     bottle.route('/index',   method='GET')    (api.get_indexes)
     bottle.route('/index',   method='POST')   (api.add_index)
     bottle.route('/index',   method='DELETE') (api.remove_index)
-    bottle.route('/files',   method='GET')    (api.get_files)
+    bottle.route('/files',   method='PUT')    (api.get_files)
     bottle.route('/files',   method='POST')   (api.add_file)
 
     bottle.TEMPLATE_PATH.append('/people/r3boot/fileindexer/templates')

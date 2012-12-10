@@ -49,7 +49,7 @@ class APIClient():
         return response['result']
 
     def add_file(self, meta):
-        payload = self.__serialize({'meta': meta})
+        payload = {'meta': meta}
         response = self.__request(method='post', path='/files', payload=payload)
         return response['result']
 

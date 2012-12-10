@@ -93,6 +93,71 @@ function get_profile() {
 
 }
 
+function get_index(server, p) {
+	$.ajax({
+		url: '/files',
+		type: 'put',
+		headers: {'Authorization': 'Basic ' + sget('auth_token')},
+		data: JSON.stringify({'parent': p}),
+		dataType: 'json',
+		success: function(response) {
+			if (response['result'] == true) {
+				$('#content').html(show_index_page())
+				var content = ""
+				for (var i=0; i < response['files'].length; i++) {
+					var path = response['files'][i]['path']
+					var ep = escape(path)
+					var last_modified = response['files'][i]['last_modified']
+					content += '<tr>'
+					content += '<td onclick=\"get_index(\''+server+'\', \''+ep+'\')\">'+server+'</td>'
+					content += '<td onclick=\"get_index(\''+server+'\', \''+ep+'\')\">'+path+'</td>'
+					content += '<td onclick=\"get_index(\''+server+'\', \''+ep+'\')\">'+last_modified+'</td>'
+					content += '</tr>'
+				}
+				$('#t_index_tbody').html(content)
+			} else {
+				$('content').html('unable to retrieve index')
+			}
+		},
+		error: function(xhr, textStatus, errorThrown) {
+			$('content').html('unable to retrieve index')
+		}
+	})
+}
+
+function get_indexes() {
+	$.ajax({
+		url: '/index',
+		type: 'get',
+		data: {},
+		headers: {'Authorization': 'Basic ' + sget('auth_token')},
+		dataType: 'json',
+		success: function(response) {
+			if (response['result'] == true) {
+				var content = ""
+				for (var i=0; i < response['indexes'].length; i++) {
+					var server = response['indexes'][i]['server']
+					var path = response['indexes'][i]['path']
+					var ep = escape(path)
+					var username = response['indexes'][i]['username']
+					content += '<tr>'
+					content += '<td onclick=\"get_index(\''+server+'\', \''+ep+'\')\">'+server+'</td>'
+					content += '<td onclick=\"get_index(\''+server+'\', \''+ep+'\')\">'+path+'</td>'
+					content += '<td onclick=\"get_index(\''+server+'\', \''+ep+'\')\">0</td>'
+					content += '<td onclick=\"get_index(\''+server+'\', \''+ep+'\')\">'+username+'</td>'
+					content += '</tr>'
+				}
+				$('#t_indexes_tbody').html(content)
+			} else {
+			 $('content').html('unable to retrieve indexes')
+			}
+		},
+		error: function(xhr, textStatus, errorThrown) { 
+			 $('content').html('unable to retrieve indexes')
+		}
+	})
+}
+
 function toggle_auth_button_box() {
 	if (sget('auth_token') == false) {
 		$('#a_servers').css("display", "none")
@@ -108,8 +173,16 @@ function toggle_auth_button_box() {
 function show_search_page() {
 	var content = "<div class=\"container-fluid\">"
 	content += "<div class=\"row-fluid\">"
-	content += "<div class=\"span4 offset4\" id=\"mainpage\">"
+	content += "<div class=\"span12\" id=\"mainpage\">"
 	content += "<table class=\"table table-hover\" id=\"t_indexes\">"
+	content += "<tr><thead>"
+	content += "<th>Server</th>"
+	content += "<th>Index</th>"
+	content += "<th># Files</th>"
+	content += "<th>Operator</th>"
+	content += "</thead></tr>"
+	content += "<tbody id=\"t_indexes_tbody\">"
+	content += "</tbody>"
 	content += "</table>"
 	content += "</div>"
 	content += "</div>"
@@ -117,10 +190,21 @@ function show_search_page() {
 	return content
 }
 
-function sb_search_content() {
-	var content = "<div class=\"btn-group btn-group-vertical\">"
-	content += "<button class=\"btn\">search</button>"
-	content += "<button class=\"btn\">browse</button>"
+function show_index_page() {
+	var content = "<div class=\"container-fluid\">"
+	content += "<div class=\"row-fluid\">"
+	content += "<div class=\"span12\" id=\"mainpage\">"
+	content += "<table class=\"table table-hover\" id=\"t_index\">"
+	content += "<tr><thead>"
+	content += "<th>Server</th>"
+	content += "<th>Path</th>"
+	content += "<th>Last Modified</th>"
+	content += "</thead></tr>"
+	content += "<tbody id=\"t_index_tbody\">"
+	content += "</tbody>"
+	content += "</table>"
+	content += "</div>"
+	content += "</div>"
 	content += "</div>"
 	return content
 }
@@ -217,9 +301,11 @@ function main() {
 		toggle_auth_button_box()
 
 		$('#content').html(show_search_page())
+		get_indexes()
 
 		$('#a_home').click(function() {
 			$('#content').html(show_search_page())
+			get_indexes()
 		})
 
 		$('#a_profile').click(function() {
@@ -260,6 +346,7 @@ function main() {
 							})
 						} else {
 							$('#content').html(show_search_page())
+							get_indexes()
 						}
 					},
 					error: function(xhr, textStatus, errorThrown) {
@@ -357,6 +444,7 @@ function main() {
 				reset_store()
 				toggle_auth_button_box()
 				$('#content').html(show_search_page())
+				get_indexes()
 			}
 		})
 
