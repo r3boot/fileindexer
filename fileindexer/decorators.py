@@ -5,6 +5,7 @@ class must_authenticate(object):
     def __init__(self):
         self.users = None
         self.servers = None
+        self.__l = None
 
     def __call__(self, f):
         def decorator(*args, **kwargs):
@@ -12,30 +13,36 @@ class must_authenticate(object):
                 self.users = args[0].users
             if not self.servers:
                 self.servers = args[0].servers
+            if not self.__l:
+                self.__l = args[0].logger
 
             (username, password) = bottle.parse_auth(bottle.request.get_header('Authorization'))
-            user = self.users.get(username)
-            servers = self.servers.get(username)
-            server = None
+            self.__l.debug('username: %s' % username)
+            self.__l.debug('password: %s' % password)
 
-            if not user and not servers:
-                bottle.abort(401, 'Access denied')
-            if username != user['username']:
-                print("username != user[username]")
-                bottle.abort(401, 'Access denied')
-            found_key = False
-            for s in servers:
-                if password == s['apikey']:
-                    server = s
-                    found_key = True
-            if not found_key:
+            if username == '_server':
+                """API key based auth"""
+                server = self.servers.get(password)
+                if not server:
+                    self.__l.error('No server found for %s' % username)
+                    bottle.abort(401, 'Access denied')
+                server = server[0]
+                user = self.users.get(server['username'])
+
+            else:
+                """User/pass based auth"""
+                user = self.users.get(username)
+                server = None
+                if not user:
+                    self.__l.error('No user found for %s' % username)
+                    bottle.abort(401, 'Access denied')
+
                 pwdhash = hashlib.sha512(password).hexdigest()
-                if pwdhash == user['password']:
-                     found_key = True
-            if not found_key:
-                print("not found_key")
-                bottle.abort(401, 'Access denied')
-            return f(*args, server=server, **kwargs)
+                if pwdhash != user['password']:
+                    self.__l.error('Password mismatch')
+                    bottle.abort(401, 'Access denied')
+
+            return f(*args, username=user['username'], user=user, server=server, **kwargs)
         return decorator
 
 class must_be_admin(object):

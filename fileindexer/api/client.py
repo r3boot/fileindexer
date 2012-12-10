@@ -3,10 +3,11 @@ import requests
 import sys
 
 class APIClient():
-    def __init__(self, logger, host, port, user, apikey):
+    _username = '_server'
+
+    def __init__(self, logger, host, port, apikey):
         self.__l = logger
         self.__uri = 'http://%s:%s' % (host, port)
-        self.__user = user
         self.__key = apikey
         self.__s = requests.session()
 
@@ -19,14 +20,14 @@ class APIClient():
         r = None
         if payload:
             payload = self.__serialize(payload)
-        auth = requests.auth.HTTPBasicAuth(self.__user, self.__key)
+        auth = requests.auth.HTTPBasicAuth(self._username, self.__key)
         try:
             if method == 'get':
                 r = self.__s.get(url, auth=auth)
             elif method == 'post':
                 r = self.__s.post(url, data=payload, auth=auth)
             elif method == 'delete':
-                r = self.__s.delete(url, auth=auth)
+                r = self.__s.delete(url, data=payload, auth=auth)
             else:
                 self.__l.error('Invalid request method')
         except requests.exceptions.ConnectionError, e:
@@ -53,17 +54,17 @@ class APIClient():
         return response['result']
 
     def add_index(self, path):
-        payload = self.__serialize({'username': self.__user, 'path': path})
-        response = self.__request(method='post', path='/index/%s' % self.__user, payload=payload)
+        payload = {'path': path}
+        response = self.__request(method='post', path='/index', payload=payload)
         return response['result']
 
     def remove_index(self, path):
-        payload = {'username': self.__user, 'path': path}
+        payload = {'path': path}
         response = self.__request(method='delete', path='/index', payload=payload)
         return response['result']
 
     def get_indexes(self):
-        response = self.__request(method='get', path='/index/%s' % self.__user)
+        response = self.__request(method='get', path='/index')
         return response
 
     def get_users(self):

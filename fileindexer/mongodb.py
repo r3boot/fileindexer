@@ -166,7 +166,7 @@ class Users(MongoAPI):
             return True
 
 class Servers(MongoAPI):
-    indexes = ['hostname']
+    indexes = ['hostname', 'apikey']
     def __init__(self, logger):
         MongoAPI.__init__(self, logger, 'servers')
         self.__l = logger
@@ -177,7 +177,11 @@ class Servers(MongoAPI):
             servers.append(server)
         return servers
 
-    def get(self, username):
+    def get(self, apikey):
+        servers = list(self.collection.find({'apikey': apikey}))
+        return servers
+
+    def get_by_username(self, username):
         servers = list(self.collection.find({'username': username}))
         return servers
 

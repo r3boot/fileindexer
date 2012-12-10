@@ -35,8 +35,6 @@ def main():
     parser.add_argument('-P', dest='port', action='store',
         default=_d_port, help='Port to connect to, defaults to %s' % _d_port)
 
-    parser.add_argument('--username', dest='username', action='store',
-        default=False, help='Username for API')
     parser.add_argument('--apikey', dest='apikey', action='store',
         default=False, help='Key for API')
 
@@ -73,14 +71,11 @@ def main():
 
     logger.debug('logging at %s' % ll2str[log_level])
 
-    if not args.username:
-        logger.error('You need to specify a username')
-        return 1
     if not args.apikey:
         logger.error('You need to specify an api key')
         return 1
 
-    api = API(logger, args.host, args.port, args.username, args.apikey)
+    api = API(logger, args.host, args.port, args.apikey)
     if api.ping():
         logger.debug('Connected to API at %s:%s' % (args.host, args.port))
     else:
@@ -113,7 +108,7 @@ def main():
             logger.error('Failed to retrieve indexes: %s' % response['message'])
             return 1
 
-        result = api.remove_index(args.username, args.del_index)
+        result = api.remove_index(args.del_index)
         if not result:
             logger.error('Failed to remove index')
             return 1

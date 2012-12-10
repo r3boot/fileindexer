@@ -50,7 +50,7 @@ function validate_authentication_token() {
 				sset('auth_token', basic_auth_token)
 				sset('username', username)
 				toggle_auth_button_box()
-				$('#content').html(show_search_box())
+				$('#content').html(show_search_page())
 			} else {
 				sset('auth_token', false)
 				sset('username', false)
@@ -73,7 +73,7 @@ function get_profile() {
 	}
 
 	$.ajax({
-		url: '/users/'+username,
+		url: '/user',
 		type: 'get',
 		data: {},
 		headers: {'Authorization': 'Basic ' + sget('auth_token')},
@@ -105,11 +105,22 @@ function toggle_auth_button_box() {
 	}
 }
 
-function show_search_box() {
-	var content = "<div id=\"search\">"
-	content += "<input type=\"text\" id=\"q\" value=\"Enter a search query\" onclick=\"if(!this._haschanged){this.value=''};this._haschanged=true;\" />"
-	content += "<button class=\"default\" id=\"b_q_submit\">go</button>"
-	content += "<button class=\"default\" id=\"b_q_reset\">reset</button>"
+function show_search_page() {
+	var content = "<div class=\"container-fluid\">"
+	content += "<div class=\"row-fluid\">"
+	content += "<div class=\"span4 offset4\" id=\"mainpage\">"
+	content += "<table class=\"table table-hover\" id=\"t_indexes\">"
+	content += "</table>"
+	content += "</div>"
+	content += "</div>"
+	content += "</div>"
+	return content
+}
+
+function sb_search_content() {
+	var content = "<div class=\"btn-group btn-group-vertical\">"
+	content += "<button class=\"btn\">search</button>"
+	content += "<button class=\"btn\">browse</button>"
 	content += "</div>"
 	return content
 }
@@ -205,10 +216,10 @@ function main() {
 
 		toggle_auth_button_box()
 
-		$('#content').html(show_search_box())
+		$('#content').html(show_search_page())
 
 		$('#a_home').click(function() {
-			$('#content').html(show_search_box())
+			$('#content').html(show_search_page())
 		})
 
 		$('#a_profile').click(function() {
@@ -234,7 +245,7 @@ function main() {
 				}
 
 				$.ajax({
-					url: '/users/'+username,
+					url: '/user',
 					type: 'post',
 					data: JSON.stringify(meta),
 					headers: {'Authorization': 'Basic ' + sget('auth_token')},
@@ -248,7 +259,7 @@ function main() {
 								validate_authentication_token()
 							})
 						} else {
-							$('#content').html(show_search_box())
+							$('#content').html(show_search_page())
 						}
 					},
 					error: function(xhr, textStatus, errorThrown) {
@@ -262,7 +273,7 @@ function main() {
 			$('#content').html(show_servers_box())
 
 			$.ajax({
-				url: '/servers/'+sget('username'),
+				url: '/servers',
 				type: 'get',
 				headers: {'Authorization': 'Basic ' + sget('auth_token')},
 				dataType: 'json',
@@ -300,7 +311,7 @@ function main() {
 					var meta = {'hostname': hostname, 'username': sget('username')}
 
 					$.ajax({
-						url: '/servers/'+sget('username'),
+						url: '/servers',
 						type: 'post',
 						headers: {'Authorization': 'Basic ' + sget('auth_token')},
 						data: JSON.stringify(meta),
@@ -345,7 +356,7 @@ function main() {
 				console.log('doing logout')
 				reset_store()
 				toggle_auth_button_box()
-				$('#content').html(show_search_box())
+				$('#content').html(show_search_page())
 			}
 		})
 

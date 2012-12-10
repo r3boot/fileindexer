@@ -10,6 +10,7 @@ class APIServer:
     users = None
 
     def __init__(self, logger, listen_ip, listen_port):
+        self.logger = logger
         self.__l = logger
         self.__listen_ip = listen_ip
         self.__listen_port = listen_port
@@ -20,13 +21,13 @@ class APIServer:
 
     def __deserialize(self, data):
         try:
-            data = eval(json.loads(data))
+            #data = eval(json.loads(data))
+            data = json.loads(data)
         except NameError, e:
             self.__l.error(e)
             self.__l.debug(data)
 
         if len(data) > 0:
-            print(data)
             for k,v in data.items():
                 self.__l.debug('%s: %s' % (k, v))
         return data
@@ -82,7 +83,7 @@ class APIServer:
 
     @fileindexer.decorators.must_authenticate()
     def get_indexes(self, *args, **kwargs):
-        username = self.__get_username()
+        username = kwargs['username']
         indexes = []
         for idx in self.indexes.list(username):
             del(idx['_id'])
@@ -95,11 +96,9 @@ class APIServer:
 
     @fileindexer.decorators.must_authenticate()
     def get_index(self, *args, **kwargs):
-        username = self.__get_username()
+        username = kwargs['username']
         request = self.__deserialize(bottle.request.body.readline())
-        if username != self.__get_username():
-            bottle.abort(401, 'Access denied')
-        idx = self.index.get(request['username'], request['path'])
+        idx = self.index.get(username, request['path'])
         if idx:
             return {'result': True, 'index': idx}
         else:
@@ -117,25 +116,26 @@ class APIServer:
     @fileindexer.decorators.must_authenticate()
     def add_index(self, *args, **kwargs):
         request = self.__deserialize(bottle.request.body.readline())
-        username = self.__get_username()
-        if request['username'] != username:
-            bottle.abort(401, 'Access denied')
+        username = kwargs['username']
+        server = kwargs['server']
+        request['username'] = username
+        request['server'] = server['hostname']
         if 'path' in request:
-            self.indexes.add(request)
-            return {'result': True, 'message': 'Path %s added to indexes' % request['path']}
+            if self.indexes.add(request):
+                return {'result': True, 'message': 'Path %s added to indexes' % request['path']}
+            else:
+                return {'result': False, 'message': 'Failed to add %s' % request['path']}
         else:
             return {'result': False, 'message': 'No index info received'}
 
     @fileindexer.decorators.must_authenticate()
     def remove_index(self, *args, **kwargs):
         request = self.__deserialize(bottle.request.body.readline())
-        username = self.__get_username()
-        if request['username'] != username:
-            bottle.abort(401, 'Access denied')
-        if self.index.remove(request):
-            return {'result': True, 'message': 'User removed succesfully'}
+        username = kwargs['username']
+        if self.indexes.remove(username, request['path']):
+            return {'result': True, 'message': 'Index removed succesfully'}
         else:
-            return {'result': True, 'message': 'Failed to remove user'}
+            return {'result': False, 'message': 'Failed to remove index'}
 
     @fileindexer.decorators.must_authenticate()
     @fileindexer.decorators.must_be_admin()
@@ -148,8 +148,7 @@ class APIServer:
 
     @fileindexer.decorators.must_authenticate()
     def get_user(self, *args, **kwargs):
-        username = self.__get_username()
-        user = self.users.get(username)
+        user = kwargs['user']
         if user:
             return {'result': True, 'user': user}
         else:
@@ -192,23 +191,24 @@ class APIServer:
 
     @fileindexer.decorators.must_authenticate()
     def get_server(self, *args, **kwargs):
-        server = args[0]
-        server = self.servers.get(server)
-        if server:
-            return {'result': True, 'server': server}
+        servers = self.servers.get_by_username(kwargs['username'])
+        if servers:
+            return {'result': True, 'servers': servers}
         else:
             return {'result': False, 'message': 'Failed to retrieve server'}
 
     @fileindexer.decorators.must_authenticate()
     def add_server(self, *args, **kwargs):
         request = self.__deserialize(bottle.request.body.readline())
-        username = self.__get_username()
-        if request['username'] != username:
-            bottle.abort(401, 'Access denied')
+        username = kwargs['username']
         if 'hostname' in request:
             return {'result': True, 'message': self.servers.add(request)}
         else:
             return {'result': False, 'message': 'Failed to add server'}
+
+    @fileindexer.decorators.must_authenticate()
+    def update_server(self, *args, **kwargs):
+        return {'result': False, 'message': 'FNI'}
 
     @fileindexer.decorators.must_authenticate()
     def remove_server(self, *args, **kwargs):
