@@ -1,5 +1,10 @@
 var s
 
+var archive_mimetypes = Array('application/bzip2', 'vnd.ms-cab-compressed', 'application/gzip', 'application/gzip-compressed', 'application/gzipped', 'application/x-gzip', 'gzip/document', 'application/x-gzip-compressed', 'application/tar', 'application/x-gtar', 'application/x-gtar', 'applicaton/x-gtar', 'application/x-lzip', 'application/x-winzip', 'application/x-zip-compressed', 'application/zip', 'application/x-zip', 'application/x-zip-compressed', 'multipart/x-zip')
+var audio_mimetypes = Array('audio/aiff', 'audio/x-aiff', 'audio/x-pn-aiff', 'sound/aiff', 'audio/flac', 'audio/mpeg', 'audio/x-mpegaudio', 'audio/vnd.rn-realaudio', 'audio/vnd.rn-realaudio-secure', 'audio/x-pm-realaudio-plugin', 'audio/x-pn-realaudio', 'audio/x-pnrealaudio-plugin', 'audio/x-pn-realaudio-plugin', 'audio/x-realaudio', 'audio/x-realaudio-secure', 'audio/basic', 'application/ogg', 'audio/ogg', 'audio/x-ogg', 'application/x-ogg')
+var video_mimetypes = Array('application/vnd.rn-realmedia', 'application/vnd.rn-realmedia-secure', 'application/vnd.rn-realmedia-vbr', 'application/x-pn-realmedia', 'audio/vnd.rn-realvideo', 'audio/vnd.rrn-realvideo', 'audio/x-pn-realvideo', 'video/vnd.rn-realvideo', 'video/vnd.rn-realvideo-secure', 'video/vnd-rn-realvideo', 'video/x-pn-realvideo', 'video/x-pn-realvideo-plugin', 'audio/avi', 'image/avi', 'video/avi', 'video/msvideo', 'video/x-msvideo', 'application/futuresplash', 'application/x-shockwave-flash', 'application/x-shockwave-flash2-preview', 'video/vnd.sealed.swf', 'application/wmf', 'application/x-msmetafile', 'application/x-wmf', 'application/vnd.ms-asf', 'application/x-mplayer2', 'audio/asf', 'video/x-ms-asf', 'video/x-la-asf', 'video/x-ms-asf', 'video/x-ms-asf-plugin', 'video/x-ms-wm', 'video/x-ms-wmx', 'video/x-flv', 'image/mov', 'video/quicktime', 'video/sgi-movie', 'video/vnd.sealedmedia.softseal.mov', 'video/x-quicktime', 'video/x-sgi-movie')
+var image_mimetypes = Array('application/bmp', 'application/preview', 'application/x-bmp', 'application/x-win-bitmap', 'image/bmp', 'image/ms-bmp', 'image/vnd.wap.wbmp', 'image/x-bitmap', 'image/x-bmp', 'image/x-ms-bmp', 'image/x-win-bitmap', 'image/x-windows-bmp', 'image/x-xbitmap', 'image/gi_', 'image/gif', 'image/vnd.sealedmedia.softseal.gif', 'application/ico', 'application/x-ico', 'application/x-iconware', 'image/ico', 'image/x-icon', 'image/jpe_', 'image/jpeg', 'image/jpeg2000', 'image/jpeg2000-image', 'image/jpg', 'image/pjpeg', 'image/vnd.sealedmedia.softseal.jpeg', 'image/vnd.swiftview-jpeg', 'image/x-jpeg2000-image', 'video/x-motion-jpeg', 'application/pcx', 'application/x-pcx', 'image/pcx', 'image/vnd.swiftview-pcx', 'image/x-pc-paintbrush', 'image/x-pcx', 'zz-application/zz-winassoc-pcx', 'application/png', 'application/x-png', 'image/png', 'image/vnd.sealed.png', 'application/psd', 'image/photoshop', 'image/psd', 'image/x-photoshop', 'zz-application/zz-winassoc-psd', 'application/x-targa', 'image/targa', 'image/x-targa', 'application/tga', 'application/x-tga', 'image/tga', 'image/x-tga', 'application/tiff', 'application/vnd.sealed.tiff', 'application/x-tiff', 'image/tiff', 'image/x-tiff', 'application/xcf', 'application/x-xcf', 'image/xcf', 'image/x-xcf', 'image/wmf', 'image/x-win-metafile', 'image/x-wmf')
+
 function sget(k) {
 	try {
 		v = s.get(k)
@@ -28,6 +33,50 @@ function reset_store() {
 	sset('auth_token', false)
 }
 
+function is_dir(mode) {
+	if ((mode & 61440) == 16384) {
+		return true
+	} else {
+		return false
+	}
+}
+
+function is_archive(mimetype) {
+	for (var i=0; i<archive_mimetypes.length; i++) {
+		if (archive_mimetypes[i] == mimetype) {
+			return true
+		}
+	}
+	return false
+}
+
+function is_audio(mimetype) {
+	for (var i=0; i<audio_mimetypes.length; i++) {
+		if (audio_mimetypes[i] == mimetype) {
+			return true
+		}
+	}
+	return false
+}
+
+function is_video(mimetype) {
+	for (var i=0; i<video_mimetypes.length; i++) {
+		if (video_mimetypes[i] == mimetype) {
+			return true
+		}
+	}
+	return false
+}
+
+function is_image(mimetype) {
+	for (var i=0; i<image_mimetypes.length; i++) {
+		if (image_mimetypes[i] == mimetype) {
+			return true
+		}
+	}
+	return false
+}
+
 // Utility functions
 function validate_authentication_token() {
 	var username = $('#i_username').val()
@@ -42,9 +91,6 @@ function validate_authentication_token() {
 		data: {},
 		headers: {'Authorization': 'Basic ' + basic_auth_token},
 		dataType: 'json',
-		/*beforeSend : function(req) {
-			req.setRequestHeader('Authorization', 'Basic ' + basic_auth_token)
-		},*/
 		success: function(response) {
 			if (response['result']) {
 				sset('auth_token', basic_auth_token)
@@ -93,7 +139,10 @@ function get_profile() {
 
 }
 
-function get_index(server, p) {
+function get_index(server, idx, p) {
+	var idx = unescape(idx)
+	var p = unescape(p)
+
 	$.ajax({
 		url: '/files',
 		type: 'put',
@@ -103,18 +152,57 @@ function get_index(server, p) {
 		success: function(response) {
 			if (response['result'] == true) {
 				$('#content').html(show_index_page())
-				var content = ""
+
+				var content = ''
 				for (var i=0; i < response['files'].length; i++) {
 					var path = response['files'][i]['path']
+					var mode = response['files'][i]['mode']
+					var mime = response['files'][i]['mime']
 					var ep = escape(path)
-					var last_modified = response['files'][i]['last_modified']
 					content += '<tr>'
-					content += '<td onclick=\"get_index(\''+server+'\', \''+ep+'\')\">'+server+'</td>'
-					content += '<td onclick=\"get_index(\''+server+'\', \''+ep+'\')\">'+path+'</td>'
-					content += '<td onclick=\"get_index(\''+server+'\', \''+ep+'\')\">'+last_modified+'</td>'
+					content += '<td width=\"50\">'
+					content += '<i class=\"icon-download\" />&nbsp;'
+					content += '<i class=\"icon-shopping-cart\" />&nbsp;'
+					content += '<i class=\"icon-qrcode\" />'
+					content += '</td>'
+					content += '<td onclick=\"get_index(\''+server+'\', \''+idx+'\', \''+ep+'\')\">'
+					if (is_dir(mode) == true) {
+						content += '<i class=\"icon-folder-open\" />&nbsp;'
+					} else {
+						if (is_archive(mime)) {
+							content += '<i class=\"icon-gift\" />&nbsp;'
+						} else if (is_audio(mime)) {
+							content += '<i class=\"icon-music\" />&nbsp;'
+						} else if (is_video(mime)) {
+							content += '<i class=\"icon-film\" />&nbsp;'
+						} else if (is_image(mime)) {
+							content += '<i class=\"icon-picture\" />&nbsp;'
+						} else {
+							content += '<i class=\"icon-file\" />&nbsp;'
+							console.log('mime: '+mime)
+						}
+					}
+					content += path
+					content += '</td>'
 					content += '</tr>'
 				}
+
+				var nav_path = '<span onclick=\"get_indexes()\">'+server+'</span>:'
+				if (idx == p) {
+					nav_path += '<span onclick=\"get_index(\''+server+'\', \''+escape(idx)+'\', \''+escape(idx)+'\')\">'+idx+'</span>'
+				} else {
+					nav_path += '<span onclick=\"get_index(\''+server+'\', \''+escape(idx)+'\', \''+escape(idx)+'\')\">'+idx+'</span>'
+					tp = idx
+					t = p.replace(idx+'/', '').split('/')
+					for (var i=0; i<t.length; i++) {
+						tp += '/'+t[i]
+						nav_path += '/<span onclick=\"get_index(\''+server+'\', \''+escape(idx)+'\', \''+escape(tp)+'\')\">'+t[i]+'</span>'
+					}
+				}
+
 				$('#t_index_tbody').html(content)
+				$('#nav_path').html(nav_path)
+
 			} else {
 				$('content').html('unable to retrieve index')
 			}
@@ -125,7 +213,12 @@ function get_index(server, p) {
 	})
 }
 
+function get_mime_icon(mimetype) {
+
+}
+
 function get_indexes() {
+
 	$.ajax({
 		url: '/index',
 		type: 'get',
@@ -134,6 +227,7 @@ function get_indexes() {
 		dataType: 'json',
 		success: function(response) {
 			if (response['result'] == true) {
+				$('#content').html(show_search_page())
 				var content = ""
 				for (var i=0; i < response['indexes'].length; i++) {
 					var server = response['indexes'][i]['server']
@@ -141,10 +235,10 @@ function get_indexes() {
 					var ep = escape(path)
 					var username = response['indexes'][i]['username']
 					content += '<tr>'
-					content += '<td onclick=\"get_index(\''+server+'\', \''+ep+'\')\">'+server+'</td>'
-					content += '<td onclick=\"get_index(\''+server+'\', \''+ep+'\')\">'+path+'</td>'
-					content += '<td onclick=\"get_index(\''+server+'\', \''+ep+'\')\">0</td>'
-					content += '<td onclick=\"get_index(\''+server+'\', \''+ep+'\')\">'+username+'</td>'
+					content += '<td onclick=\"get_index(\''+server+'\', \''+path+'\', \''+ep+'\')\">'+server+'</td>'
+					content += '<td onclick=\"get_index(\''+server+'\', \''+path+'\', \''+ep+'\')\">'+path+'</td>'
+					content += '<td onclick=\"get_index(\''+server+'\', \''+path+'\', \''+ep+'\')\">0</td>'
+					content += '<td onclick=\"get_index(\''+server+'\', \''+path+'\', \''+ep+'\')\">'+username+'</td>'
 					content += '</tr>'
 				}
 				$('#t_indexes_tbody').html(content)
@@ -193,12 +287,15 @@ function show_search_page() {
 function show_index_page() {
 	var content = "<div class=\"container-fluid\">"
 	content += "<div class=\"row-fluid\">"
+	content += "<div class=\"span12\" id=\"nav_path\">"
+	content += "</div>"
+	content += "</div>"
+	content += "<div class=\"row-fluid\">"
 	content += "<div class=\"span12\" id=\"mainpage\">"
 	content += "<table class=\"table table-hover\" id=\"t_index\">"
 	content += "<tr><thead>"
-	content += "<th>Server</th>"
+	content += "<th></th>"
 	content += "<th>Path</th>"
-	content += "<th>Last Modified</th>"
 	content += "</thead></tr>"
 	content += "<tbody id=\"t_index_tbody\">"
 	content += "</tbody>"
@@ -300,11 +397,9 @@ function main() {
 
 		toggle_auth_button_box()
 
-		$('#content').html(show_search_page())
 		get_indexes()
 
 		$('#a_home').click(function() {
-			$('#content').html(show_search_page())
 			get_indexes()
 		})
 
@@ -345,7 +440,6 @@ function main() {
 								validate_authentication_token()
 							})
 						} else {
-							$('#content').html(show_search_page())
 							get_indexes()
 						}
 					},
@@ -443,7 +537,6 @@ function main() {
 				console.log('doing logout')
 				reset_store()
 				toggle_auth_button_box()
-				$('#content').html(show_search_page())
 				get_indexes()
 			}
 		})

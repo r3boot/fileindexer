@@ -56,6 +56,7 @@ def main():
     bottle.route('/',                method='GET')    (api.webapp)
     bottle.route('/js/:filename',    method='GET')    (api.serve_js)
     bottle.route('/css/:filename',   method='GET')    (api.serve_css)
+    bottle.route('/img/:filename',   method='GET')    (api.serve_png)
 
     ## API
     bottle.route('/ping',    method='GET')    (api.ping)

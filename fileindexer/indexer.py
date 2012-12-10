@@ -101,6 +101,7 @@ class Indexer(threading.Thread):
         'sound/aiff': 'aiff',
         'audio/flac': 'flac',
         'audio/x-mpegaudio': 'mpeg_audio',
+        'audio/mpeg': 'mpeg_audio',
         'audio/vnd.rn-realaudio': 'real_audio',
         'audio/vnd.rn-realaudio-secure': 'real_audio',
         'audio/x-pm-realaudio-plugin': 'real_audio',

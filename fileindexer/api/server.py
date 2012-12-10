@@ -54,6 +54,13 @@ class APIServer:
         else:
             bottle.abort(404, 'File not found')
 
+    def serve_png(self, filename):
+        if os.path.exists('/people/r3boot/fileindexer/img/%s' % filename):
+            bottle.response.set_header('Content-type', 'image/png')
+            return open('/people/r3boot/fileindexer/img/%s' % filename, 'r').read()
+        else:
+            bottle.abort(404, 'File not found')
+
     def ping(self):
         return {'result': True, 'message': 'pong'}
 
