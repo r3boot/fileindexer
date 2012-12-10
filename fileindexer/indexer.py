@@ -290,10 +290,10 @@ class Indexer(threading.Thread):
         num_files = 0
         num_dirs = 0
         for (parent, dirs, files) in os.walk(path):
-            #for f in files:
-            #    num_files += 1
-            #    full_path = os.path.join(parent, f)
-            #    self.add(parent, full_path.encode('UTF-8'))
+            for f in files:
+                num_files += 1
+                full_path = os.path.join(parent, f)
+                self.add(parent, full_path.encode('UTF-8'))
             for d in dirs:
                 num_dirs += 1
                 full_path = os.path.join(parent, d)
