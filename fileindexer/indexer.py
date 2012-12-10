@@ -6,10 +6,47 @@ import hachoir_core.stream
 import hachoir_metadata
 import hachoir_parser
 import hashlib
+import json
 import mimetypes
 import os
 import stat
 import threading
+
+class IndexWriter:
+    _00index_include = ['size', 'parent', 'uid', 'gid', 'mode', 'ctime', 'atime', 'mtime', 'is_dir']
+    def __init__(self, logger):
+        self.__l = logger
+
+    def make_00INDEX(self, parent, files, directories):
+        idx = os.path.join(parent, '00INDEX')
+        if os.path.exists(idx):
+            os.unlink(idx)
+        fd = open(idx, 'w')
+        for directory in directories:
+            meta = {}
+            for k in self._00index_include:
+                meta[k] = directory[k]
+            line = '%s\t%s\n' % (directory['filename'], json.dumps(meta))
+            fd.write(line)
+        for file in files:
+            meta = {}
+            for k in self._00index_include:
+                meta[k] = file[k]
+            line = '%s\t%s\n' % (file['filename'], json.dumps(meta))
+            fd.write(line)
+        fd.close()
+
+    def write_indexes(self, parent, metadata):
+        files = []
+        directories = []
+        for item in metadata:
+            if stat.S_ISDIR(item['mode']):
+                directories.append(item)
+            else:
+                files.append(item)
+        directories.sort()
+        files.sort()
+        self.make_00INDEX(parent, files, directories)
 
 class HachoirMetadataParser:
     #__unparseable = ['nfo', 'cue', 'diz', 'message', 'log', 'lsm', 'com', 'int', 'sub', 'mar', 'idx', 'bin', 'def', 'for', 'in', '1', 'l', 'str', 'nzb', 'obj', 'CUE']
@@ -267,13 +304,14 @@ class Indexer(threading.Thread):
         'video/x-sgi-movie': 'mov',
         'application/octet-stream': None
     }
+    _excluded = ['00INDEX', '00SUMS', '00METADATA']
 
-    def __init__(self, logger, api, idx, do_stat=True, do_hachoir=True, hachoir_quality=0.5, ignore_symlinks=True):
+    def __init__(self, logger, path, do_stat=True, do_hachoir=False, hachoir_quality=0.5, ignore_symlinks=True):
         threading.Thread.__init__(self)
         self.hmp = HachoirMetadataParser(logger)
+        self.iw = IndexWriter(logger)
         self.__l = logger
-        self.api = api
-        self.path = idx['path']
+        self.path = path
         self.do_stat = do_stat
         self.do_hachoir = do_hachoir
         self.ignore_symlinks = ignore_symlinks
@@ -287,35 +325,71 @@ class Indexer(threading.Thread):
         t_total = t_end - self.__t_start
         self.__l.info('Finished indexing %s in %s (%s files, %s dirs)' % (self.path, t_total, num_files, num_dirs))
 
+    def __to_unicode(self, s):
+        try:
+            return unicode(s)
+        except UnicodeDecodeError, e:
+            self.__l.warn('Failed to translate %s to unicode' % s)
+            self.__l.warn(e)
+
     def index(self, path):
         num_files = 0
         num_dirs = 0
         for (parent, dirs, files) in os.walk(path):
+            parent = self.__to_unicode(parent)
+            if not parent:
+                continue
+
+            metadata = []
             for f in files:
+                if f in self._excluded:
+                    continue
+
+                f = self.__to_unicode(f)
+                if not f:
+                    continue
+
                 num_files += 1
                 full_path = os.path.join(parent, f)
-                self.add(parent, full_path.encode('UTF-8'))
+                meta = self.add(parent, full_path)
+                if meta:
+                    metadata.append(meta)
             for d in dirs:
+                if d in self._excluded:
+                    continue
+
+                d = self.__to_unicode(d)
+                if not d:
+                    continue
+
                 num_dirs += 1
                 full_path = os.path.join(parent, d)
-                self.add(parent, full_path.encode('UTF-8'))
+                meta = self.add(parent, full_path)
+                if meta:
+                    metadata.append(meta)
+            self.iw.write_indexes(parent, metadata)
+
         return (num_files, num_dirs)
 
     def add(self, parent, path):
         meta = {}
-        meta['index'] = self.path
-        meta['path'] = path
-        meta['_id'] = hashlib.sha1(path).hexdigest()
+        meta['filename'] = os.path.basename(path)
         meta['parent'] = parent
 
         try:
             st = os.stat(path)
         except OSError, e:
-            self.__l.error('Failed to stat %s' % path)
-            self.__l.error(e)
+            self.__l.warn('Failed to stat %s' % path)
+            self.__l.warn(e)
             return
 
+        meta['is_dir'] = stat.S_ISDIR(st.st_mode)
+
+        # Naive, but sufficient & fast enough for now
+        meta['checksum'] = hashlib.md5('%s %s' % (os.path.basename(path), st.st_size)).hexdigest()
+
         if self.ignore_symlinks and stat.S_ISLNK(st.st_mode):
+            self.__l.warn('Skipping symlink %s' % path)
             return
 
         if self.do_stat:
@@ -343,4 +417,4 @@ class Indexer(threading.Thread):
                         for k,v in hmp_meta.items():
                             meta[k] = v
 
-        self.api.add_file(meta)
+        return meta
