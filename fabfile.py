@@ -11,7 +11,7 @@ remote_dir = '/people/r3boot'
 def sync(host=remote_host, directory=remote_dir):
     cwd = os.getcwd()
     with settings(remote_host=host):
-        local("rsync -avl --progress --exclude '*.swp' --exclude '*.pyc' %s %s:%s" % (cwd, host, directory))
+        local("rsync -avl --progress --delete --exclude '*.swp' --exclude '*.pyc' %s %s:%s" % (cwd, host, directory))
     
 
 if __name__ == '__main__':
