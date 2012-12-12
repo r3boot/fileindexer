@@ -1,11 +1,13 @@
 
 import os
+import threading
 
+import Queue
 import whoosh.index
 import whoosh.fields
 import whoosh.writing
 
-class WhooshIndex:
+class WhooshIndex(threading.Thread):
     _index_name = 'fileindexer'
     _schema = whoosh.fields.Schema(
         filename=whoosh.fields.TEXT(stored=True),
@@ -25,12 +27,19 @@ class WhooshIndex:
         self._idx_dir = os.path.join(index_base, self._index_name)
         self.idx = None
         self.writer = None
+        self.__q = Queue.Queue()
         self.open_index()
 
     def __destroy__(self):
         if self.idx:
             self.idx.close()
 
+    def run(self):
+        while True:
+            while not self.__q.empty():
+                meta = self.__q.get()
+                self.writer.add_document(**meta)
+                
     def has_index(self):
         if not os.path.exists(self._idx_dir):
             return False
@@ -73,8 +82,5 @@ class WhooshIndex:
         else:
             self.writer.commit(optimize=True)
 
-    def add_document(self, *args, **kwargs):
-        if not self.writer:
-            self.__l.error('Cannot add, no writer')
-        else:
-            self.writer.add_document(**kwargs)
+    def add_document(self, meta):
+        self.__q.put(meta)

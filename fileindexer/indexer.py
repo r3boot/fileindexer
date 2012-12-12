@@ -332,6 +332,9 @@ class Indexer(threading.Thread):
             self.__l.warn('Failed to translate %s to unicode' % s)
             self.__l.warn(e)
 
+    def __ts_to_text(self, timestamp):
+        return str(datetime.datetime.fromtimestamp(timestamp))
+
     def index(self, path):
         num_files = 0
         num_dirs = 0

@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import Queue
 import argparse
 import datetime
 import json
@@ -10,12 +11,11 @@ import sys
 import threading
 import time
 
-import whoosh.index
-import whoosh.fields
-
 __description__ = 'Add description'
 
 _d_debug = False
+_d_backend = 'http://127.0.0.1:5423/idx'
+_d_apikey = False
 
 ll2str = {
     10: 'DEBUG',
@@ -25,49 +25,95 @@ ll2str = {
     50: 'CRITICAL'
 }
 
-class WhooshBackend:
-    def __init__(self, logger):
-        self.__l = logger
-        self.schema = whoosh.fields.Schema(
-            filename=whoosh.fields.TEXT(stored=True),
-            atime=whoosh.fields.DATETIME(stored=True),
-            ctime=whoosh.fields.DATETIME(stored=True),
-            parent=whoosh.fields.TEXT(stored=True),
-            gid=whoosh.fields.NUMERIC(stored=True),
-            mode=whoosh.fields.NUMERIC(stored=True),
-            mtime=whoosh.fields.DATETIME(stored=True),
-            is_dir=whoosh.fields.BOOLEAN(stored=True),
-            size=whoosh.fields.NUMERIC(stored=True),
-            uid=whoosh.fields.NUMERIC(stored=True)
-        )
-        self.ix = whoosh.index.create_in("/tmp/fileindex", self.schema)
-
-        self.__lock = False
-
-    def add(self, *args, **kwargs):
-        while self.__lock:
-            time.sleep(1.0)
-
-        self.__lock = True
-        writer = self.ix.writer()
-        writer.add_document(**kwargs)
-        writer.commit()
-        self.__lock = False
-
-class Crawler(threading.Thread):
-    def __init__(self, logger, wb, url):
+class RequestBuffer(threading.Thread):
+    def __init__(self, logger, backend, apikey):
         threading.Thread.__init__(self)
         self.__l = logger
-        self.__wb = wb
+        self.__b = backend
+        self.__k = apikey
+        self.q = Queue.Queue()
+        self.stop = False
+        self.setDaemon(True)
+        self.__s = requests.session()
+        self.start()
+
+    def __destroy__(self):
+        self.q.join()
+        self.stop = True
+
+    def __serialize(self, data):
+        return json.dumps(data)
+
+    def __request(self, meta):
+        response = {}
+        r = None
+        payload = self.__serialize(meta)
+        auth = requests.auth.HTTPBasicAuth('_server', self.__k)
+        try:
+            r = self.__s.post(self.__b, data=payload, auth=auth)
+        except requests.exceptions.ConnectionError, e:
+            r = False
+            self.__l.error('Request failed: %s' % e)
+            response['result'] = False
+            response['message'] = e
+            self.__l.error(e)
+        except ValueError, e:
+            r = False
+            self.__l.error('Request failed: %s' % e)
+            response['result'] = False
+            response['message'] = e
+            self.__l.error(e)
+        finally:
+            if r and r.status_code == 200:
+                response['result'] = True
+                response['data'] = r.json
+            else:
+                self.__l.error('Request failed')
+                response['result'] = False
+                response['message'] = 'Request failed'
+
+        return response
+
+    def run(self):
+        self.__l.debug('Starting request buffer thread (%s)' % self.__b)
+        batch = []
+        batch_cnt = 0
+        while not self.stop:
+            if self.stop:
+                self.__l.info('Waiting for request queue to empty')
+                while not self.q.empty():
+                    self.__l.debug('qsize: %s' % self.q.qsize())
+                    meta = self.q.get()
+                    self.__request(meta)
+                break
+
+            while not self.q.empty():
+                meta = self.q.get()
+                if batch_cnt >= 5000:
+                    self.__request(batch)
+                    batch = []
+                    batch_cnt = 0
+                else:
+                    batch.append(meta)
+                    batch_cnt += 1
+            self.__request(batch)
+
+            time.sleep(0.1)
+
+class Crawler(threading.Thread):
+    def __init__(self, logger, request_buffer, url):
+        threading.Thread.__init__(self)
+        self.__l = logger
+        self.__b = request_buffer
         self.url = url
+        self.__s = requests.session()
         self.setDaemon(True)
         self.__t_start = datetime.datetime.now()
-        self.__s = requests.session()
 
     def __request(self, method, path):
         response = {}
         url = '%s%s' % (self.url, path)
-        print(url)
+        self.__l.debug('Parsing %s' % url)
         r = None
         try:
             if method == 'get':
@@ -111,7 +157,11 @@ class Crawler(threading.Thread):
                 (filename, raw_meta) = line.split('\t')
                 meta = json.loads(raw_meta)
                 meta['filename'] = filename
-                self.__wb.add(meta)
+                if parent == '':
+                    meta['url'] = '%s/%s' % (self.url, os.path.join(path, filename))
+                else:
+                    meta['url'] = '%s/%s' % (self.url, os.path.join(parent, path, filename))
+                self.__b.q.put(meta)
 
                 if meta['is_dir']:
                     if parent == '':
@@ -134,6 +184,11 @@ def main():
     parser.add_argument('url', metavar='URL', type=str,
         nargs='+', help='URL to crawl')
 
+    parser.add_argument('--backend', dest='backend', action='store',
+        default=_d_backend, help='URL for backend')
+    parser.add_argument('--apikey', dest='apikey', action='store',
+        default=_d_apikey, help='API key for backend')
+
     args = parser.parse_args()
 
     logger = logging.getLogger('main')
@@ -151,16 +206,19 @@ def main():
 
     logger.debug('logging at %s' % ll2str[log_level])
 
-    wb = WhooshBackend(logger)
+    rb = RequestBuffer(logger, args.backend, args.apikey)
 
     crawlers = []
     for url in args.url:
-        crawler = Crawler(logger, wb, url)
+        crawler = Crawler(logger, rb, url)
         crawler.start()
         crawlers.append(crawler)
 
     for crawler in crawlers:
         crawler.join()
+
+    rb.stop = True
+    rb.join()
 
     return
 

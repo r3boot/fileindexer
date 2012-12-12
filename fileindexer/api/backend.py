@@ -1,4 +1,5 @@
 import bottle
+import datetime
 import json
 
 from fileindexer.decorators import must_authenticate, must_be_admin
@@ -24,9 +25,9 @@ class BackendAPI:
             self.__l.error(e)
             self.__l.debug(data)
 
-        if len(data) > 0:
-            for k,v in data.items():
-                self.__l.debug('%s: %s' % (k, v))
+        #if len(data) > 0:
+        #    for k,v in data.items():
+        #        self.__l.debug('%s: %s' % (k, v))
         return data
 
     def __get_username(self):
@@ -89,4 +90,9 @@ class BackendAPI:
 
     def add_document(self, *args, **kwargs):
         request = self.__deserialize(bottle.request.body.readline())
-        self.idx.add_document(**request)
+        for item in request:
+            for dt in ['atime', 'ctime', 'mtime']:
+                item[dt] = datetime.datetime.fromtimestamp(float(item[dt]))
+            if not self.idx.add_document(item):
+                return {'result': False, 'message': 'Failed to add document'}
+        return {'result': True, 'message': 'Document added successfully'}
