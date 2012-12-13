@@ -2,8 +2,8 @@ import bottle
 import datetime
 import json
 
-from fileindexer.decorators import must_authenticate, must_be_admin
-from fileindexer.backends.mongodb import Users
+from fileindexer.decorators.backend import must_authenticate, must_be_admin
+from fileindexer.backends.mongodb import Users, Servers
 from fileindexer.backends.whooshidx import WhooshIndex
 
 class BackendAPI:
@@ -16,6 +16,7 @@ class BackendAPI:
         self.__listen_ip = listen_ip
         self.__listen_port = listen_port
         self.users = Users(logger)
+        self.servers = Servers(logger)
         self.idx = WhooshIndex(logger)
 
     def __deserialize(self, data):
@@ -88,6 +89,7 @@ class BackendAPI:
         else:
             return {'result': True, 'message': 'Failed to remove user'}
 
+    @must_authenticate()
     def add_document(self, *args, **kwargs):
         request = self.__deserialize(bottle.request.body.readline())
         for item in request:
@@ -96,3 +98,9 @@ class BackendAPI:
             if not self.idx.add_document(item):
                 return {'result': False, 'message': 'Failed to add document'}
         return {'result': True, 'message': 'Document added successfully'}
+
+    def query(self, *args, **kwargs):
+        request = self.__deserialize(bottle.request.body.readline())
+        if 'query' in request:
+            self.__l.debug('Q: %s' % request['query'])
+            self.idx.query(request['query'])

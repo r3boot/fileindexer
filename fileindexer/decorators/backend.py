@@ -17,8 +17,6 @@ class must_authenticate(object):
                 self.__l = args[0].logger
 
             (username, password) = bottle.parse_auth(bottle.request.get_header('Authorization'))
-            self.__l.debug('username: %s' % username)
-            self.__l.debug('password: %s' % password)
 
             if username == '_server':
                 """API key based auth"""

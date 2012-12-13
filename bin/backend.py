@@ -61,6 +61,7 @@ def main():
     bottle.route('/user',  method='GET')    (api.get_user)
     bottle.route('/user',  method='POST')   (api.update_user)
     bottle.route('/idx',   method='POST')   (api.add_document)
+    bottle.route('/q',     method='POST')   (api.query)
 
     api.run()
 

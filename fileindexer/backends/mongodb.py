@@ -1,11 +1,12 @@
 import hashlib
 import pymongo
+import uuid
 
 class MongoAPI():
     __dbname = 'fileindexer'
     indexes = []
 
-    def __init__(self, logger, collection_name, autoconnect=True, ):
+    def __init__(self, logger, collection_name, autoconnect=True):
         self.__l = logger
         self.collection_name = collection_name
         self.__conn = False
@@ -128,3 +129,44 @@ class Users(MongoAPI):
                 self.__l.warn('Failed to remove user %s' % username)
         else:
             self.__l.info('No such user %s' % username)
+
+class Servers(MongoAPI):
+    indexes = ['hostname', 'apikey']
+    def __init__(self, logger):
+        MongoAPI.__init__(self, logger, 'servers')
+        self.__l = logger
+        self.initialize()
+
+    def initialize(self):
+        if len(self.list()) == 0:
+            meta = {'hostname': '_crawler', 'username': 'admin', 'apikey': str(uuid.uuid4())}
+            self.add(meta)
+            self.__l.info('Generated api key for crawler: %s' % meta['apikey'])
+
+            meta = {'hostname': '_frontend', 'username': 'admin', 'apikey': str(uuid.uuid4())}
+            self.add(meta)
+            self.__l.info('Generated api key for frontend: %s' % meta['apikey'])
+
+    def list(self):
+        servers = list(self.collection.find())
+        return servers
+
+    def get(self, apikey):
+        servers = list(self.collection.find({'apikey': apikey}))
+        return servers
+
+    def get_by_username(self, username):
+        servers = list(self.collection.find({'username': username}))
+        return servers
+
+    def get_by_hostname(self, hostname):
+        servers = list(self.collection.find({'hostname': hostname}))
+        return servers
+
+    def add(self, meta):
+        meta['_id'] = meta['hostname']
+        meta['apikey'] = str(uuid.uuid4())
+        return self.collection.save(meta)
+
+    def remove(self, hostname):
+        return self.collection.remove({'hostname': hostname})

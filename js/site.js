@@ -78,19 +78,20 @@ function is_image(mimetype) {
 }
 
 // Utility functions
-function validate_authentication_token() {
-	var username = $('#i_username').val()
-	var password = $('#i_password').val()
-	var basic_auth = username + ":" + password
-	var basic_auth_token = btoa(basic_auth)
+function validate_authentication_token(username, password) {
+	var basic_auth_token = btoa(username+':'+password)
+
 	console.log('basic_auth_token: '+basic_auth_token)
 
 	$.ajax({
 		url: '/auth',
 		type: 'get',
 		data: {},
-		headers: {'Authorization': 'Basic ' + basic_auth_token},
+		//headers: {'Authorization': 'Basic ' + basic_auth_token},
 		dataType: 'json',
+		beforeSend: function (xhr) {
+			xhr.setRequestHeader('Authorization', 'Basic ' + basic_auth_token)
+		},
 		success: function(response) {
 			if (response['result']) {
 				sset('auth_token', basic_auth_token)
@@ -107,9 +108,7 @@ function validate_authentication_token() {
 			console.log('XHR: '+xhr.status+'; textStatus: '+textStatus+'; errorThrown: '+errorThrown)
 			$("#content").html('Failed to authenticate')
 		}
-		
 	})
-
 }
 
 function get_profile() {
@@ -137,122 +136,6 @@ function get_profile() {
 		}
 	})
 
-}
-
-function get_index(server, name, idx, p) {
-	var name = unescape(name)
-	var idx = unescape(idx)
-	var p = unescape(p)
-
-	console.log('name: '+name)
-	console.log('idx: '+idx)
-	console.log('p: '+p)
-
-	$.ajax({
-		url: '/files',
-		type: 'put',
-		headers: {'Authorization': 'Basic ' + sget('auth_token')},
-		data: JSON.stringify({'parent': p}),
-		dataType: 'json',
-		success: function(response) {
-			if (response['result'] == true) {
-				$('#content').html(show_index_page())
-
-				var content = ''
-				for (var i=0; i < response['files'].length; i++) {
-					var path = response['files'][i]['path']
-					var mode = response['files'][i]['mode']
-					var mime = response['files'][i]['mime']
-					var ep = escape(path)
-					content += '<tr>'
-					content += '<td onclick=\"get_index(\''+server+'\', \''+name+'\', \''+idx+'\', \''+ep+'\')\">'
-					if (is_dir(mode) == true) {
-						content += '<i class=\"icon-folder-open\" />&nbsp;'
-						content += '<i class=\"icon-shopping-cart\" />&nbsp;'
-					} else {
-						if (is_archive(mime)) {
-							content += '<i class=\"icon-gift\" />&nbsp;'
-						} else if (is_audio(mime)) {
-							content += '<i class=\"icon-music\" />&nbsp;'
-						} else if (is_video(mime)) {
-							content += '<i class=\"icon-film\" />&nbsp;'
-						} else if (is_image(mime)) {
-							content += '<i class=\"icon-picture\" />&nbsp;'
-						} else {
-							content += '<i class=\"icon-file\" />&nbsp;'
-							console.log('mime: '+mime)
-						}
-						content += '<i class=\"icon-shopping-cart\" />&nbsp;'
-						content += '<i class=\"icon-download\" />&nbsp;'
-					}
-					content += path
-					content += '</td>'
-					content += '</tr>'
-				}
-
-				var nav_path = '<span onclick=\"get_indexes()\">'+server+'</span> -> '
-				if (idx == p) {
-					nav_path += '<span onclick=\"get_index(\''+server+'\', \''+name+'\', \''+escape(idx)+'\', \''+escape(idx)+'\', \''+escape(idx)+'\')\">'+name+'</span>'
-				} else {
-					nav_path += '<span onclick=\"get_index(\''+server+'\', \''+name+'\', \''+escape(idx)+'\', \''+escape(idx)+'\', \''+escape(idx)+'\')\">'+name+'</span>'
-					tp = idx
-					t = p.replace(idx+'/', '').split('/')
-					for (var i=0; i<t.length; i++) {
-						tp += '/'+t[i]
-						nav_path += '-> <span onclick=\"get_index(\''+server+'\', \''+name+'\', \''+escape(idx)+'\', \''+escape(tp)+'\')\">'+t[i]+'</span>'
-					}
-				}
-
-				$('#t_index_tbody').html(content)
-				$('#nav_path').html(nav_path)
-
-			} else {
-				$('content').html('unable to retrieve index')
-			}
-		},
-		error: function(xhr, textStatus, errorThrown) {
-			$('content').html('unable to retrieve index')
-		}
-	})
-}
-
-function get_indexes() {
-
-	$.ajax({
-		url: '/index',
-		type: 'get',
-		data: {},
-		headers: {'Authorization': 'Basic ' + sget('auth_token')},
-		dataType: 'json',
-		success: function(response) {
-			if (response['result'] == true) {
-				$('#content').html(show_search_page())
-				var content = ""
-				for (var i=0; i < response['indexes'].length; i++) {
-					var server = response['indexes'][i]['server']
-					var path = response['indexes'][i]['path']
-					var name = response['indexes'][i]['name']
-					var description = response['indexes'][i]['description']
-					var ep = escape(path)
-					var username = response['indexes'][i]['username']
-
-					content += '<tr>'
-					content += '<td onclick=\"get_index(\''+server+'\', \''+name+'\', \''+path+'\', \''+ep+'\')\">'+server+'</td>'
-					content += '<td onclick=\"get_index(\''+server+'\', \''+name+'\', \''+path+'\', \''+ep+'\')\">'+name+'</td>'
-					content += '<td onclick=\"get_index(\''+server+'\', \''+name+'\', \''+path+'\', \''+ep+'\')\">'+description+'</td>'
-					content += '<td onclick=\"get_index(\''+server+'\', \''+name+'\', \''+path+'\', \''+ep+'\')\">0</td>'
-					content += '<td onclick=\"get_index(\''+server+'\', \''+name+'\', \''+path+'\', \''+ep+'\')\">'+username+'</td>'
-					content += '</tr>'
-				}
-				$('#t_indexes_tbody').html(content)
-			} else {
-			 $('content').html('unable to retrieve indexes')
-			}
-		},
-		error: function(xhr, textStatus, errorThrown) { 
-			 $('#content').html('unable to retrieve indexes')
-		}
-	})
 }
 
 function edit_server(server) {
@@ -341,29 +224,7 @@ function show_search_page() {
 	return content
 }
 
-function show_index_page() {
-	var content = "<div class=\"container-fluid\">"
-	content += "<div class=\"row-fluid\">"
-	content += "<div class=\"span12\" id=\"nav_path\">"
-	content += "</div>"
-	content += "</div>"
-	content += "<div class=\"row-fluid\">"
-	content += "<div class=\"span12\" id=\"mainpage\">"
-	content += "<table class=\"table table-hover\" id=\"t_index\">"
-	content += "<tr><thead>"
-	content += "<th></th>"
-	content += "<th>Path</th>"
-	content += "</thead></tr>"
-	content += "<tbody id=\"t_index_tbody\">"
-	content += "</tbody>"
-	content += "</table>"
-	content += "</div>"
-	content += "</div>"
-	content += "</div>"
-	return content
-}
-
-function show_login_box() {
+function view_auth() {
 	var content = "<form class=\"form-signin\">"
 	content += "<h2 class=\"form-signin-heading\">Please sign in</h2>"
 	content += "<input type=\"text\" id=\"i_username\" class=\"input-block-level\" placeholder=\"Username\">"
@@ -372,7 +233,19 @@ function show_login_box() {
 	content += "<input type=\"checkbox\" value=\"remember-me\"> Remember me</label>"
 	content += "<button class=\"btn btn-large btn-primary\" id=\"b_signin\" type=\"submit\">Sign in</button>"
 	content += "</form>"
-	return content
+
+	$('#content').html(content)
+
+	$('#a_servers').removeClass('active');
+	$('#a_profile').removeClass('active');
+	$('#a_auth').addClass('active');
+
+	$('#b_signin').click(function() {
+		var username = $('#i_username').val()
+		var password = $('#i_password').val()
+
+		validate_authentication_token(username, password)
+	})
 }
 
 function show_profile_box() {
@@ -395,13 +268,17 @@ function show_profile_box() {
 	return content
 }
 
-function show_servers_box() {
+function view_servers() {
 
 	var content = "<form class=\"form-servers\">"
 	content += '<h2 class=\"form-servers-heading\">Edit servers for '+sget('username')+'</h2>'
 	content += '<div id=\"servers_content\"></div>'
 	content += '<button class=\"btn\" id=\"b_add_new_server\"><i class=\"icon-plus\"/> Add server</button>'
 	content += "</form>"
+
+	$('#a_servers').addClass('active');
+	$('#a_profile').removeClass('active');
+	$('#a_auth').removeClass('active');
 
 	$('#content').html(content)
 
@@ -451,7 +328,7 @@ function show_servers_box() {
 				dataType: 'json',
 				success: function(response) {
 					if (response['result']) {
-						show_servers_box()
+						view_servers()
 					} else {
 						$('#content').html('Failed to add server')
 					}
@@ -511,6 +388,91 @@ function show_add_rewrite_box() {
 	return content
 }
 
+function view_search() {
+	var content = '<div class=\"container-fluid\" id=\"d_search\">'
+	content += '<div class=\"center hero-unit\">'
+	content += '<div class=\"row-fluid\">'
+	content += '<div class=\"span12\">'
+	content += '<form>'
+	content += '<input type=\"text\" class=\"input-block-level search-query\" id=\"i_q\" />'
+	content += '<button class=\"btn\" id=\"b_search\"><i class=\"icon-thumbs-up\" /> Go</button>'
+	content += '<button class=\"btn\" id=\"b_adv_search\"><i class=\"icon-thumbs-up\" /> Advanced</button>'
+	content += '</form>'
+	content += '</div>'
+	content += '</div>'
+	content += '</div>'
+	content += '</div>'
+
+	$('#content').html(content)
+
+	$('#b_search').click(function() {
+		var meta = {'query': $('#i_q').val()}
+
+		$.ajax({
+			url: '/q',
+			type: 'post',
+			data: JSON.stringify(meta),
+			headers: {'Authorization': 'Basic ' + sget('auth_token')},
+			dataType: 'json',
+			success: function(response) {
+				console.log('query response')
+			},
+			error: function(xhr, textStatus, errorThrown) {
+				$('#content').html('Failed to submit query')
+			}
+		})
+	})
+
+}
+
+function view_profile() {
+	$('#content').html(show_profile_box())
+	get_profile()
+
+	$('#a_servers').removeClass('active');
+	$('#a_profile').addClass('active');
+	$('#a_auth').removeClass('active');
+
+	$('#b_update_profile').click(function() {
+		username = sget('username')
+		var meta = {'username': username}
+		var has_newpass = false
+		if ($('#i_realname').val() != sget('realname')) {
+			meta['realname'] = $('#i_realname').val()
+		}
+		if ($('#i_newpass1').val() != '') {
+			if ($('#i_newpass1').val() == $('#i_newpass2').val()) {
+				meta['new_password'] = $('#i_newpass1').val()
+				has_newpass = true
+			}
+		}
+
+		$.ajax({
+			url: '/user',
+			type: 'post',
+			data: JSON.stringify(meta),
+			headers: {'Authorization': 'Basic ' + sget('auth_token')},
+			dataType: 'json',
+			success: function(response) {
+				if (has_newpass) {
+					reset_store()
+					toggle_auth_button_box()
+					$('#content').html(show_login_box())
+
+					$('#b_signin').click(function() {
+						validate_authentication_token()
+					})
+				} else {
+					get_indexes()
+				}
+			},
+			error: function(xhr, textStatus, errorThrown) {
+				$('#content').html('Failed to update profile')
+			}
+		})
+	})
+}
+
 function main() {
 	$(document).ready(function() {
 		s = new Persist.Store('fileindexer')
@@ -529,85 +491,28 @@ function main() {
 
 		toggle_auth_button_box()
 
-		get_indexes()
+		view_search()
 
 		$('#a_home').click(function() {
-			get_indexes()
+			view_search()
 		})
 
 		$('#a_profile').click(function() {
-			$('#content').html(show_profile_box())
-			get_profile()
-
-			$('#a_servers').removeClass('active');
-			$('#a_profile').addClass('active');
-			$('#a_auth').removeClass('active');
-
-			$('#b_update_profile').click(function() {
-				username = sget('username')
-				var meta = {'username': username}
-				var has_newpass = false
-				if ($('#i_realname').val() != sget('realname')) {
-					meta['realname'] = $('#i_realname').val()
-				}
-				if ($('#i_newpass1').val() != '') {
-					if ($('#i_newpass1').val() == $('#i_newpass2').val()) {
-						meta['new_password'] = $('#i_newpass1').val()
-						has_newpass = true
-					}
-				}
-
-				$.ajax({
-					url: '/user',
-					type: 'post',
-					data: JSON.stringify(meta),
-					headers: {'Authorization': 'Basic ' + sget('auth_token')},
-					dataType: 'json',
-					success: function(response) {
-						if (has_newpass) {
-							reset_store()
-							toggle_auth_button_box()
-							$('#content').html(show_login_box())
-							$('#b_signin').click(function() {
-								validate_authentication_token()
-							})
-						} else {
-							get_indexes()
-						}
-					},
-					error: function(xhr, textStatus, errorThrown) {
-						$('#content').html('Failed to update profile')
-					}
-				})
-			})
+			view_profile()
 		})
 
 		$('#a_servers').click(function() {
-			show_servers_box()
-
-			$('#a_servers').addClass('active');
-			$('#a_profile').removeClass('active');
-			$('#a_auth').removeClass('active');
-
+			view_servers()
 		})
 
 		$('#a_auth').click(function() {
 			if (sget('auth_token') == false) {
-				$('#content').html(show_login_box())
-
-				$('#a_servers').removeClass('active');
-				$('#a_profile').removeClass('active');
-				$('#a_auth').addClass('active');
-
-				$('#b_signin').click(function() {
-					validate_authentication_token()
-				})
-
+				view_auth()
 			} else {
 				console.log('doing logout')
 				reset_store()
 				toggle_auth_button_box()
-				get_indexes()
+				view_search()
 			}
 		})
 

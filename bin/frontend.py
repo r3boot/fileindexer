@@ -7,13 +7,16 @@ import sys
 
 sys.path.append('/people/r3boot/fileindexer')
 
-from fileindexer.api.server import APIServer as API
+from fileindexer.api.frontend import FrontendAPI as API
+from fileindexer.client.backend import BackendClient
 
-__description__ = 'File Indexer Daemon'
+__description__ = 'File Indexer Frontend'
 
 _d_debug = False
 _d_listen_ip = '127.0.0.1'
-_d_listen_port = '5423'
+_d_listen_port = '5424'
+_d_backend = 'http://127.0.0.1:5423'
+_d_apikey = False
 
 ll2str = {
     10: 'DEBUG',
@@ -29,9 +32,14 @@ def main():
         default=_d_debug, help='Enable debugging')
 
     parser.add_argument('-L', dest='listen_ip', action='store',
-        default=_d_listen_ip, help='Where to listen on, defaults to %s' % (_d_listen_ip))
+        default=_d_listen_ip, help='Where to listen on, defaults to %s' % _d_listen_ip)
     parser.add_argument('-P', dest='listen_port', action='store',
-        default=_d_listen_port, help='Port to listen on, defaults to %s' % (_d_listen_port))
+        default=_d_listen_port, help='Port to listen on, defaults to %s' % _d_listen_port)
+
+    parser.add_argument('--backend', dest='backend', action='store',
+        default=_d_backend, help='URL for backend (%s)' % _d_backend)
+    parser.add_argument('--apikey', dest='apikey', action='store',
+        default=_d_apikey, help='API key for backend')
 
     args = parser.parse_args()
 
@@ -50,7 +58,8 @@ def main():
 
     logger.debug('logging at %s' % ll2str[log_level])
 
-    api = API(logger, args.listen_ip, args.listen_port)
+    client = BackendClient(logger, args.backend, args.apikey)
+    api = API(logger, args.listen_ip, args.listen_port, client)
 
     ## Webapp
     bottle.route('/',                method='GET')    (api.webapp)
@@ -59,7 +68,6 @@ def main():
     bottle.route('/img/:filename',   method='GET')    (api.serve_png)
 
     ## API
-    bottle.route('/ping',    method='GET')    (api.ping)
     bottle.route('/auth',    method='GET')    (api.test_authentication)
     bottle.route('/users',   method='GET')    (api.get_users)
     bottle.route('/users',   method='POST')   (api.add_user)
@@ -71,11 +79,7 @@ def main():
     bottle.route('/servers', method='DELETE') (api.remove_server)
     bottle.route('/server',  method='PUT')    (api.get_server)
     bottle.route('/server',  method='POST')   (api.update_server)
-    bottle.route('/index',   method='GET')    (api.get_indexes)
-    bottle.route('/index',   method='POST')   (api.add_index)
-    bottle.route('/index',   method='DELETE') (api.remove_index)
-    bottle.route('/files',   method='PUT')    (api.get_files)
-    bottle.route('/files',   method='POST')   (api.add_file)
+    bottle.route('/q',       method='POST')   (api.query)
 
     bottle.TEMPLATE_PATH.append('/people/r3boot/fileindexer/templates')
     api.run()

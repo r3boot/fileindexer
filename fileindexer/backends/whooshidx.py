@@ -1,15 +1,17 @@
 
 import os
-import threading
+import time
 
 import Queue
 import whoosh.index
 import whoosh.fields
 import whoosh.writing
+import whoosh.qparser
 
-class WhooshIndex(threading.Thread):
+class WhooshIndex:
     _index_name = 'fileindexer'
     _schema = whoosh.fields.Schema(
+        url=whoosh.fields.TEXT,
         filename=whoosh.fields.TEXT(stored=True),
         atime=whoosh.fields.DATETIME(stored=True),
         ctime=whoosh.fields.DATETIME(stored=True),
@@ -26,7 +28,10 @@ class WhooshIndex(threading.Thread):
         self.__l = logger
         self._idx_dir = os.path.join(index_base, self._index_name)
         self.idx = None
+        self.qparser = None
         self.writer = None
+        self.batch = []
+        self.batch_cnt = 0
         self.__q = Queue.Queue()
         self.open_index()
 
@@ -34,12 +39,6 @@ class WhooshIndex(threading.Thread):
         if self.idx:
             self.idx.close()
 
-    def run(self):
-        while True:
-            while not self.__q.empty():
-                meta = self.__q.get()
-                self.writer.add_document(**meta)
-                
     def has_index(self):
         if not os.path.exists(self._idx_dir):
             return False
@@ -62,7 +61,8 @@ class WhooshIndex(threading.Thread):
             self.idx = whoosh.index.open_dir(self._idx_dir)
         else:
             self.create_index()
-        self.writer = whoosh.writing.BufferedWriter(self.idx, period=30, limit=100)
+        self.writer = whoosh.writing.BufferedWriter(self.idx, period=60, limit=10000)
+        self.qparser = whoosh.qparser.QueryParser('url', schema=self._schema)
 
     def commit(self):
         if not self.writer:
@@ -83,4 +83,26 @@ class WhooshIndex(threading.Thread):
             self.writer.commit(optimize=True)
 
     def add_document(self, meta):
-        self.__q.put(meta)
+        self.writer.add_document(**meta)
+        """
+        self.batch.append(meta)
+        self.batch_cnt += 1
+        if self.batch_cnt >= 100:
+            writer = whoosh.writing.BufferedWriter('fileindexer')
+            for item in self.batch:
+                self.__l.debug(item)
+                writer.add_document(**item)
+            writer.commit()
+
+            self.batch = []
+            self.batch_cnt = 0
+        """
+        return True
+
+    def query(self, query):
+        q = self.qparser.parse(query)
+        with self.idx.searcher() as s:
+            results = s.search(q)
+            for hit in results:
+                print(hit)
+
