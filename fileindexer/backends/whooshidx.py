@@ -11,7 +11,7 @@ import whoosh.qparser
 class WhooshIndex:
     _index_name = 'fileindexer'
     _schema = whoosh.fields.Schema(
-        url=whoosh.fields.TEXT,
+        url=whoosh.fields.TEXT(stored=True),
         filename=whoosh.fields.TEXT(stored=True),
         atime=whoosh.fields.DATETIME(stored=True),
         ctime=whoosh.fields.DATETIME(stored=True),
@@ -38,6 +38,9 @@ class WhooshIndex:
     def __destroy__(self):
         if self.idx:
             self.idx.close()
+
+    def _process_results(self):
+        pass
 
     def has_index(self):
         if not os.path.exists(self._idx_dir):
@@ -100,9 +103,16 @@ class WhooshIndex:
         return True
 
     def query(self, query):
+        results = {
+            'documents': [],
+            'hits': 0
+        }
         q = self.qparser.parse(query)
         with self.idx.searcher() as s:
-            results = s.search(q)
-            for hit in results:
-                print(hit)
-
+            r = s.search(q)
+            for (docid, raw_doc) in enumerate(r):
+                raw_doc = dict(raw_doc)
+                results['documents'].append(raw_doc)
+                results['hits'] += 1
+       
+        return results

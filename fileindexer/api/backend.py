@@ -103,4 +103,14 @@ class BackendAPI:
         request = self.__deserialize(bottle.request.body.readline())
         if 'query' in request:
             self.__l.debug('Q: %s' % request['query'])
-            self.idx.query(request['query'])
+            r = self.idx.query(request['query'])
+            documents = []
+            for doc in r['documents']:
+                for k,v in doc.items():
+                    if isinstance(v, datetime.datetime):
+                        doc[k] = v.isoformat()
+                    else:
+                        doc[k] = v
+                documents.append(doc)
+            r['documents'] = documents
+            return {'result': True, 'results': r}

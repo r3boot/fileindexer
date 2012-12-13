@@ -416,6 +416,11 @@ function view_search() {
 			dataType: 'json',
 			success: function(response) {
 				console.log('query response')
+				if (response['result']) {
+					view_search_results(response['results'])
+				} else {
+					$('#content').html('Query returned a failure')
+				}
 			},
 			error: function(xhr, textStatus, errorThrown) {
 				$('#content').html('Failed to submit query')
@@ -423,6 +428,26 @@ function view_search() {
 		})
 	})
 
+}
+
+function view_search_results(results) {
+	var content = '<form>'
+	content += '<input type=\"text\" class=\"input-block-level search-query\" id=\"i_q\" />'
+	content += '<button class=\"btn\" id=\"b_search\"><i class=\"icon-thumbs-up\" /> Go</button>'
+	content += '<button class=\"btn\" id=\"b_adv_search\"><i class=\"icon-thumbs-up\" /> Advanced</button>'
+	content += '</form>'
+	content += '<table class=\"table table-hover\" id=\"t_search_results\">'
+	content += '</table>'
+	$('#content').html(content)
+
+	var search_results = ''
+	for (var i = 0; i<results['documents'].length; i++) {
+		var url = results['documents'][i]['url']
+		search_results += '<tr>'
+		search_results += '<td><a href=\"'+url+'\">'+url+'</a></td>'
+		search_results += '</tr>'
+	}
+	$('#t_search_results').html(search_results)
 }
 
 function view_profile() {
