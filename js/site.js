@@ -97,7 +97,7 @@ function validate_authentication_token(username, password) {
 				sset('auth_token', basic_auth_token)
 				sset('username', username)
 				toggle_auth_button_box()
-				$('#content').html(show_search_page())
+				view_search()
 			} else {
 				sset('auth_token', false)
 				sset('username', false)
@@ -161,11 +161,12 @@ function edit_server(server) {
 		}
 	})
 
-	$('#b_update_server').click(function() {
-
+	$('#b_update_server').click(function(e) {
+		e.preventDefault()
 	})
 
-	$('#b_rewrites').click(function() {
+	$('#b_rewrites').click(function(e) {
+		e.preventDefault()
 	})
 }
 
@@ -240,7 +241,8 @@ function view_auth() {
 	$('#a_profile').removeClass('active');
 	$('#a_auth').addClass('active');
 
-	$('#b_signin').click(function() {
+	$('#b_signin').click(function(e) {
+		e.preventDefault()
 		var username = $('#i_username').val()
 		var password = $('#i_password').val()
 
@@ -395,8 +397,8 @@ function view_search() {
 	content += '<div class=\"span12\">'
 	content += '<form>'
 	content += '<input type=\"text\" class=\"input-block-level search-query\" id=\"i_q\" />'
-	content += '<button class=\"btn\" id=\"b_search\"><i class=\"icon-thumbs-up\" /> Go</button>'
-	content += '<button class=\"btn\" id=\"b_adv_search\"><i class=\"icon-thumbs-up\" /> Advanced</button>'
+	content += '<button class=\"btn\" id=\"b_main_search\"><i class=\"icon-thumbs-up\" /> Go</button>'
+	content += '<button class=\"btn\" id=\"b_main_adv_search\"><i class=\"icon-thumbs-up\" /> Advanced</button>'
 	content += '</form>'
 	content += '</div>'
 	content += '</div>'
@@ -405,7 +407,8 @@ function view_search() {
 
 	$('#content').html(content)
 
-	$('#b_search').click(function() {
+	$('#b_main_search').click(function(e) {
+		e.preventDefault()
 		var meta = {'query': $('#i_q').val()}
 
 		$.ajax({
@@ -430,6 +433,17 @@ function view_search() {
 
 }
 
+function format_search_results(results) {
+	var content = ''
+	for (var i=0; i<results['documents'].length; i++) {
+		var url = results['documents'][i]['url']
+		content += '<tr>'
+		content += '<td><a href=\"'+url+'\">'+url+'</a></td>'
+		content += '</tr>'
+	}
+	return content
+}
+
 function view_search_results(results) {
 	var content = '<form>'
 	content += '<input type=\"text\" class=\"input-block-level search-query\" id=\"i_q\" />'
@@ -440,14 +454,32 @@ function view_search_results(results) {
 	content += '</table>'
 	$('#content').html(content)
 
-	var search_results = ''
-	for (var i = 0; i<results['documents'].length; i++) {
-		var url = results['documents'][i]['url']
-		search_results += '<tr>'
-		search_results += '<td><a href=\"'+url+'\">'+url+'</a></td>'
-		search_results += '</tr>'
-	}
-	$('#t_search_results').html(search_results)
+	$('#t_search_results').html(format_search_results(results))
+
+	$('#b_search').click(function(e) {
+		e.preventDefault()
+		var meta = {'query': $('#i_q').val()}
+		console.log('here')
+
+		$.ajax({
+			url: '/q',
+			type: 'post',
+			data: JSON.stringify(meta),
+			headers: {'Authorization': 'Basic ' + sget('auth_token')},
+			dataType: 'json',
+			success: function(response) {
+				console.log('query response')
+				if (response['result']) {
+					$('#t_search_results').html(format_search_results(response['results']))
+				} else {
+					$('#content').html('Query returned a failure')
+				}
+			},
+			error: function(xhr, textStatus, errorThrown) {
+				$('#content').html('Failed to submit query')
+			}
+		})
+	})
 }
 
 function view_profile() {
@@ -484,11 +516,12 @@ function view_profile() {
 					toggle_auth_button_box()
 					$('#content').html(show_login_box())
 
-					$('#b_signin').click(function() {
+					$('#b_signin').click(function(e) {
+						e.preventDefault()
 						validate_authentication_token()
 					})
 				} else {
-					get_indexes()
+					view_search()
 				}
 			},
 			error: function(xhr, textStatus, errorThrown) {
@@ -501,36 +534,29 @@ function view_profile() {
 function main() {
 	$(document).ready(function() {
 		s = new Persist.Store('fileindexer')
-
-		if (sget('auth_token') == null) {
-			sset('auth_token', false)
-		}
-
-		if (sget('username') == null) {
-			sset('username', false)
-		}
-
-		if (sget('realname') == null) {
-			sset('realname', false)
-		}
+		reset_store()
 
 		toggle_auth_button_box()
 
 		view_search()
 
-		$('#a_home').click(function() {
+		$('#a_home').click(function(e) {
+			e.preventDefault()
 			view_search()
 		})
 
-		$('#a_profile').click(function() {
+		$('#a_profile').click(function(e) {
+			e.preventDefault()
 			view_profile()
 		})
 
-		$('#a_servers').click(function() {
+		$('#a_servers').click(function(e) {
+			e.preventDefault()
 			view_servers()
 		})
 
-		$('#a_auth').click(function() {
+		$('#a_auth').click(function(e) {
+			e.preventDefault()
 			if (sget('auth_token') == false) {
 				view_auth()
 			} else {
