@@ -2,12 +2,14 @@
 
 import argparse
 import bottle
+import gevent.queue
 import logging
 import sys
 
 sys.path.append('/people/r3boot/fileindexer')
 
 from fileindexer.api.backend import BackendAPI as API
+from fileindexer.workers.whoosh_writer import WhooshWriter
 
 __description__ = 'File Indexer Backend Daemon'
 
@@ -50,7 +52,10 @@ def main():
 
     logger.debug('logging at %s' % ll2str[log_level])
 
-    api = API(logger, args.listen_ip, args.listen_port)
+    wq = gevent.queue.Queue()
+
+    whoosh_writer = WhooshWriter(logger, wq)
+    api = API(logger, args.listen_ip, args.listen_port, wq)
 
     ## API
     bottle.route('/ping',  method='GET')    (api.ping)
@@ -63,7 +68,9 @@ def main():
     bottle.route('/idx',   method='POST')   (api.add_document)
     bottle.route('/q',     method='POST')   (api.query)
 
+    whoosh_writer.start()
     api.run()
+    gevent.joinall([whoosh_writer])
 
     return
 

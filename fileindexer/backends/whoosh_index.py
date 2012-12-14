@@ -67,41 +67,6 @@ class WhooshIndex:
         self.writer = whoosh.writing.BufferedWriter(self.idx, period=60, limit=10000)
         self.qparser = whoosh.qparser.QueryParser('url', schema=self._schema)
 
-    def commit(self):
-        if not self.writer:
-            self.__l.error('Cannot commit, no writer')
-        else:
-            self.writer.commit()
-
-    def merge(self):
-        if not self.writer:
-            self.__l.error('Cannot merge, no writer')
-        else:
-            self.writer.commit(merge=True)
-
-    def optimize_index(self):
-        if not self.writer:
-            self.__l.error('Cannot optimize index, no writer')
-        else:
-            self.writer.commit(optimize=True)
-
-    def add_document(self, meta):
-        self.writer.add_document(**meta)
-        """
-        self.batch.append(meta)
-        self.batch_cnt += 1
-        if self.batch_cnt >= 100:
-            writer = whoosh.writing.BufferedWriter('fileindexer')
-            for item in self.batch:
-                self.__l.debug(item)
-                writer.add_document(**item)
-            writer.commit()
-
-            self.batch = []
-            self.batch_cnt = 0
-        """
-        return True
-
     def query(self, query):
         results = {
             'documents': [],

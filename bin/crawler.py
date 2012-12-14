@@ -92,7 +92,7 @@ class RequestBuffer(threading.Thread):
                 batch.append(meta)
                 batch_cnt += 1
 
-                if batch_cnt >= 100:
+                if batch_cnt >= 5:
                     self.__request(batch)
                     batch = []
                     batch_cnt = 0

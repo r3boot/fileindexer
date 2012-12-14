@@ -1,23 +1,23 @@
 import bottle
 import datetime
+import gevent
 import json
 
 from fileindexer.decorators.backend import must_authenticate, must_be_admin
 from fileindexer.backends.mongodb import Users, Servers
-from fileindexer.backends.whooshidx import WhooshIndex
 
 class BackendAPI:
     __valid_config_items = ['paths']
     users = None
 
-    def __init__(self, logger, listen_ip, listen_port):
+    def __init__(self, logger, listen_ip, listen_port, write_queue):
         self.logger = logger
         self.__l = logger
         self.__listen_ip = listen_ip
         self.__listen_port = listen_port
+        self.__wq = write_queue
         self.users = Users(logger)
         self.servers = Servers(logger)
-        self.idx = WhooshIndex(logger)
 
     def __deserialize(self, data):
         try:
@@ -95,15 +95,17 @@ class BackendAPI:
         for item in request:
             for dt in ['atime', 'ctime', 'mtime']:
                 item[dt] = datetime.datetime.fromtimestamp(float(item[dt]))
-            if not self.idx.add_document(item):
-                return {'result': False, 'message': 'Failed to add document'}
+            try:
+                self.__wq.put_nowait(item)
+            except gevent.queue.Full:
+                return {'result': False, 'message': 'Failed to add document, queue is full'}
         return {'result': True, 'message': 'Document added successfully'}
 
     def query(self, *args, **kwargs):
         request = self.__deserialize(bottle.request.body.readline())
         if 'query' in request:
             self.__l.debug('Q: %s' % request['query'])
-            r = self.idx.query(request['query'])
+            r = self.wwm.query(request['query'])
             documents = []
             for doc in r['documents']:
                 for k,v in doc.items():
