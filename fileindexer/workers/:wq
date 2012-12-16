@@ -1,0 +1,56 @@
+import bottle
+#import gevent.queue
+import Queue
+import threading
+import time
+
+from fileindexer.api.backend import BackendAPI as API
+
+class QueueFiller(threading.Thread):
+    def __init__(self, logger, p_writeq, g_writeq):
+        threading.Thread.__init__(self)
+        self.__l = logger
+        self.__pwq = p_writeq
+        self.__gwq = g_writeq
+        self.setDaemon(True)
+        self.stop = False
+        self.start()
+
+    def __destroy__(self):
+        self.stop = True
+
+    def run(self):
+        self.__l.debug('[backend_api process] starting QueueFiller')
+        while not self.stop:
+            if self.__gwq.qsize() > 0:
+                while not self.__gwq.empty():
+                    #self.__l.debug('[QueueFiller]: g_writeq size: %s' % self.__gwq.qsize())
+                    #self.__l.debug('[QueueFiller]: p_writeq size: %s' % self.__pwq.qsize())
+                    meta = self.__gwq.get()
+                    self.__pwq.put(meta)
+            else:
+                time.sleep(0.1)
+        self.__l.debug('[backend_api process] QueueFiller stopped')
+
+def backend_api(logger, listen_ip, listen_port, p_writeq):
+    logger.debug('[backend_api process]: Starting process')
+    g_writeq = Queue.Queue()
+    QueueFiller(logger, p_writeq, g_writeq)
+    api = API(logger, listen_ip, listen_port, g_writeq)
+
+    ## API
+    bottle.route('/ping',  method='GET')    (api.ping)
+    bottle.route('/auth',  method='GET')    (api.test_authentication)
+    bottle.route('/users', method='GET')    (api.get_users)
+    bottle.route('/users', method='POST')   (api.add_user)
+    bottle.route('/users', method='DELETE') (api.remove_user)
+    bottle.route('/user',  method='GET')    (api.get_user)
+    bottle.route('/user',  method='POST')   (api.update_user)
+    bottle.route('/idx',   method='POST')   (api.add_document)
+    bottle.route('/q',     method='POST')   (api.query)
+
+    try:
+        api.run()
+    except KeyboardInterrupt, e:
+        logger.warn(e)
+    logger.debug('[backend_api process]: Process stopping')

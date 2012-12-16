@@ -24,7 +24,7 @@ class WhooshIndex:
         uid=whoosh.fields.NUMERIC(stored=True)
     )
 
-    def __init__(self, logger, index_base='/tmp'):
+    def __init__(self, logger, index_base='/data1/fileindexer'):
         self.__l = logger
         self._idx_dir = os.path.join(index_base, self._index_name)
         self.idx = None

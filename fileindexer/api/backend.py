@@ -1,6 +1,5 @@
 import bottle
 import datetime
-import gevent
 import json
 
 from fileindexer.decorators.backend import must_authenticate, must_be_admin
@@ -95,10 +94,7 @@ class BackendAPI:
         for item in request:
             for dt in ['atime', 'ctime', 'mtime']:
                 item[dt] = datetime.datetime.fromtimestamp(float(item[dt]))
-            try:
-                self.__wq.put_nowait(item)
-            except gevent.queue.Full:
-                return {'result': False, 'message': 'Failed to add document, queue is full'}
+            self.__wq.put(item, block=False, timeout=0.1)
         return {'result': True, 'message': 'Document added successfully'}
 
     def query(self, *args, **kwargs):

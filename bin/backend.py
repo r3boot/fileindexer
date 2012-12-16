@@ -1,15 +1,14 @@
 #!/usr/bin/env python
 
 import argparse
-import bottle
-import gevent.queue
 import logging
+import multiprocessing
 import sys
+import time
 
 sys.path.append('/people/r3boot/fileindexer')
 
-from fileindexer.api.backend import BackendAPI as API
-from fileindexer.workers.whoosh_writer import WhooshWriter
+from fileindexer.workers.backendapi import backend_api
 
 __description__ = 'File Indexer Backend Daemon'
 
@@ -52,25 +51,20 @@ def main():
 
     logger.debug('logging at %s' % ll2str[log_level])
 
-    wq = gevent.queue.Queue()
+    processes = []
+    p_writeq_in = multiprocessing.Queue()
 
-    whoosh_writer = WhooshWriter(logger, wq)
-    api = API(logger, args.listen_ip, args.listen_port, wq)
+    ## Backend API
+    beapi_proc = multiprocessing.Process(
+        target=backend_api,
+        args=(logger, args.listen_ip, args.listen_port, p_writeq_in)
+    )
+    beapi_proc.daemon = True
+    beapi_proc.start()
+    processes.append(beapi_proc)
 
-    ## API
-    bottle.route('/ping',  method='GET')    (api.ping)
-    bottle.route('/auth',  method='GET')    (api.test_authentication)
-    bottle.route('/users', method='GET')    (api.get_users)
-    bottle.route('/users', method='POST')   (api.add_user)
-    bottle.route('/users', method='DELETE') (api.remove_user)
-    bottle.route('/user',  method='GET')    (api.get_user)
-    bottle.route('/user',  method='POST')   (api.update_user)
-    bottle.route('/idx',   method='POST')   (api.add_document)
-    bottle.route('/q',     method='POST')   (api.query)
-
-    whoosh_writer.start()
-    api.run()
-    gevent.joinall([whoosh_writer])
+    for proc in processes:
+        proc.join()
 
     return
 
