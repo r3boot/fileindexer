@@ -8,7 +8,7 @@ import sys
 
 sys.path.append('/people/r3boot/fileindexer')
 
-from fileindexer.workers.crawlermanager import CrawlerManager
+from fileindexer.workers.crawlerfeeder import CrawlerFeeder
 
 __description__ = 'Add description'
 
@@ -52,8 +52,8 @@ def main():
 
     logger.debug('logging at %s' % ll2str[log_level])
 
-    crawler_manager = CrawlerManager(logger, args.url)
-    crawler_manager.run()
+    crawler_feeder = CrawlerFeeder(logger, args.url)
+    crawler_feeder.run()
 
 if __name__ == '__main__':
     sys.exit(main())

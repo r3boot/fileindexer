@@ -1,19 +1,23 @@
 import datetime
-import gevent
-import time
+import json
+import multiprocessing
+import os
 
 from fileindexer.backends.whoosh_index import WhooshIndex
 
-class Writer(gevent.Greenlet):
-    def __init__(self, logger, p_writeq, lock, limit=250):
-        gevent.Greenlet.__init__(self)
+class Writer(multiprocessing.Process):
+    def __init__(self, logger, fifo, limit=1000):
+        multiprocessing.Process.__init__(self)
         self.__l = logger
-        self.__q = p_writeq
-        self.__lock = lock
+        self.__fifo = fifo
         self.__limit = limit
         self.stop = False
         self.__wi = WhooshIndex(logger)
-        self.start()
+        self.__fd = os.open(self.__fifo, os.O_RDONLY)
+
+    def __destroy__(self):
+        if self.__fd:
+            os.close(self.__fd)
 
     def flush_buffer(self, buff):
         writer = self.__wi.idx.writer()
@@ -21,28 +25,32 @@ class Writer(gevent.Greenlet):
             writer.add_document(**doc)
         writer.commit()
 
-    def _run(self):
-        self.__l.debug('[writer greenlet]: Starting writer')
+    def run(self):
+        self.__l.debug('[writer process]: Starting writer')
+        raw_buff = ''
         buff = []
         buff_cnt = 0
         while True:
-           try:
-               meta = self.__q.get()
-               if buff_cnt >= self.__limit:
-                   self.__l.debug('[writer greenet]: flushing write queue (qsize: %s)' % self.__q.qsize())
-                   self.flush_buffer(buff)
-                   buff = []
-                   buff_cnt = 0
-               else:
-                   for k,v in meta.items():
-                       if k in ['atime', 'ctime', 'mtime']:
-                           meta[k] = datetime.datetime.fromtimestamp(v)
-                       else:
-                           meta[k] = unicode(v)
-                   buff.append(meta)
-                   buff_cnt += 1
-           except gevent.queue.Empty:
-               if len(buff) > 0:
-                   self.flush_buffer(buff)
-               time.sleep(1.0)
-        self.__l.debug('[writer greenlet]: Writer stopping')
+            c = os.read(self.__fd, 1)
+            if c != '\n':
+                raw_buff += c
+            else:
+                meta = json.loads(raw_buff)
+                raw_buff = ''
+                if buff_cnt >= self.__limit:
+                    self.__l.debug('[writer process]: flushing write queue')
+                    self.flush_buffer(buff)
+                    buff = []
+                    buff_cnt = 0
+                else:
+                    for k,v in meta.items():
+                        if k in ['atime', 'ctime', 'mtime']:
+                            meta[k] = datetime.datetime.fromtimestamp(v)
+                        else:
+                            meta[k] = unicode(v)
+                    buff.append(meta)
+                    buff_cnt += 1
+        self.__l.debug('[writer process]: Writer stopping')
+
+if __name__ == '__main__':
+    pass

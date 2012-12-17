@@ -3,7 +3,7 @@
 import json
 import requests
 
-def crawler(logger, session, url, out_q, lock):
+def crawler(logger, session, url, out_q):
 
     def __request(logger, session, url, method):
         response = {}
