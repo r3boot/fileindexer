@@ -1,5 +1,4 @@
 import bottle
-import hashlib
 
 class must_authenticate(object):
     def __init__(self):
@@ -18,6 +17,9 @@ class must_authenticate(object):
 
             (username, password) = bottle.parse_auth(bottle.request.get_header('Authorization'))
 
+            self.__l.debug('username: %s' % username)
+            self.__l.debug('password: %s' % password)
+
             if username == '_server':
                 """API key based auth"""
                 server = self.servers.get(password)
@@ -34,9 +36,7 @@ class must_authenticate(object):
                 if not user:
                     self.__l.error('No user found for %s' % username)
                     bottle.abort(401, 'Access denied')
-
-                pwdhash = hashlib.sha512(password).hexdigest()
-                if pwdhash != user['password']:
+                if not self.users.validate_password(username, password):
                     self.__l.error('Password mismatch')
                     bottle.abort(401, 'Access denied')
 

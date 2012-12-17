@@ -8,15 +8,12 @@ import sys
 sys.path.append('/people/r3boot/fileindexer')
 
 from fileindexer.api.frontend import FrontendAPI as API
-from fileindexer.client.backend import BackendClient
 
 __description__ = 'File Indexer Frontend'
 
 _d_debug = False
 _d_listen_ip = '127.0.0.1'
-_d_listen_port = '5424'
-_d_backend = 'http://127.0.0.1:5423'
-_d_apikey = False
+_d_listen_port = '5423'
 
 ll2str = {
     10: 'DEBUG',
@@ -36,11 +33,6 @@ def main():
     parser.add_argument('-P', dest='listen_port', action='store',
         default=_d_listen_port, help='Port to listen on, defaults to %s' % _d_listen_port)
 
-    parser.add_argument('--backend', dest='backend', action='store',
-        default=_d_backend, help='URL for backend (%s)' % _d_backend)
-    parser.add_argument('--apikey', dest='apikey', action='store',
-        default=_d_apikey, help='API key for backend')
-
     args = parser.parse_args()
 
     logger = logging.getLogger('main')
@@ -58,8 +50,7 @@ def main():
 
     logger.debug('logging at %s' % ll2str[log_level])
 
-    client = BackendClient(logger, args.backend, args.apikey)
-    api = API(logger, args.listen_ip, args.listen_port, client)
+    api = API(logger, args.listen_ip, args.listen_port)
 
     ## Webapp
     bottle.route('/',                method='GET')    (api.webapp)

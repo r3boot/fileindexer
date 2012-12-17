@@ -5,6 +5,8 @@ var audio_mimetypes = Array('audio/aiff', 'audio/x-aiff', 'audio/x-pn-aiff', 'so
 var video_mimetypes = Array('application/vnd.rn-realmedia', 'application/vnd.rn-realmedia-secure', 'application/vnd.rn-realmedia-vbr', 'application/x-pn-realmedia', 'audio/vnd.rn-realvideo', 'audio/vnd.rrn-realvideo', 'audio/x-pn-realvideo', 'video/vnd.rn-realvideo', 'video/vnd.rn-realvideo-secure', 'video/vnd-rn-realvideo', 'video/x-pn-realvideo', 'video/x-pn-realvideo-plugin', 'audio/avi', 'image/avi', 'video/avi', 'video/msvideo', 'video/x-msvideo', 'application/futuresplash', 'application/x-shockwave-flash', 'application/x-shockwave-flash2-preview', 'video/vnd.sealed.swf', 'application/wmf', 'application/x-msmetafile', 'application/x-wmf', 'application/vnd.ms-asf', 'application/x-mplayer2', 'audio/asf', 'video/x-ms-asf', 'video/x-la-asf', 'video/x-ms-asf', 'video/x-ms-asf-plugin', 'video/x-ms-wm', 'video/x-ms-wmx', 'video/x-flv', 'image/mov', 'video/quicktime', 'video/sgi-movie', 'video/vnd.sealedmedia.softseal.mov', 'video/x-quicktime', 'video/x-sgi-movie')
 var image_mimetypes = Array('application/bmp', 'application/preview', 'application/x-bmp', 'application/x-win-bitmap', 'image/bmp', 'image/ms-bmp', 'image/vnd.wap.wbmp', 'image/x-bitmap', 'image/x-bmp', 'image/x-ms-bmp', 'image/x-win-bitmap', 'image/x-windows-bmp', 'image/x-xbitmap', 'image/gi_', 'image/gif', 'image/vnd.sealedmedia.softseal.gif', 'application/ico', 'application/x-ico', 'application/x-iconware', 'image/ico', 'image/x-icon', 'image/jpe_', 'image/jpeg', 'image/jpeg2000', 'image/jpeg2000-image', 'image/jpg', 'image/pjpeg', 'image/vnd.sealedmedia.softseal.jpeg', 'image/vnd.swiftview-jpeg', 'image/x-jpeg2000-image', 'video/x-motion-jpeg', 'application/pcx', 'application/x-pcx', 'image/pcx', 'image/vnd.swiftview-pcx', 'image/x-pc-paintbrush', 'image/x-pcx', 'zz-application/zz-winassoc-pcx', 'application/png', 'application/x-png', 'image/png', 'image/vnd.sealed.png', 'application/psd', 'image/photoshop', 'image/psd', 'image/x-photoshop', 'zz-application/zz-winassoc-psd', 'application/x-targa', 'image/targa', 'image/x-targa', 'application/tga', 'application/x-tga', 'image/tga', 'image/x-tga', 'application/tiff', 'application/vnd.sealed.tiff', 'application/x-tiff', 'image/tiff', 'image/x-tiff', 'application/xcf', 'application/x-xcf', 'image/xcf', 'image/x-xcf', 'image/wmf', 'image/x-win-metafile', 'image/x-wmf')
 
+var int_to_month = Array('Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec')
+
 function sget(k) {
 	try {
 		v = s.get(k)
@@ -75,6 +77,10 @@ function is_image(mimetype) {
 		}
 	}
 	return false
+}
+
+function set_href(url) {
+	window.location.href = url
 }
 
 // Utility functions
@@ -392,11 +398,15 @@ function view_search() {
 	content += '<div class=\"center hero-unit\">'
 	content += '<div class=\"row-fluid\">'
 	content += '<div class=\"span12\">'
-	content += '<form>'
+	content += '<div class=\"span10\">'
 	content += '<input type=\"text\" class=\"input-block-level search-query\" id=\"i_q\" />'
+	content += '</div>'
+	content += '<div class=\"span2\">'
+	content += '<div class=\"btn-group\">'
 	content += '<button class=\"btn\" id=\"b_main_search\"><i class=\"icon-thumbs-up\" /> Go</button>'
-	content += '<button class=\"btn\" id=\"b_main_adv_search\"><i class=\"icon-thumbs-up\" /> Advanced</button>'
-	content += '</form>'
+	content += '<button class=\"btn\" id=\"b_main_adv_search\"><i class=\"icon-filter\" /> Advanced</button>'
+	content += '</div>'
+	content += '</div>'
 	content += '</div>'
 	content += '</div>'
 	content += '</div>'
@@ -406,52 +416,129 @@ function view_search() {
 
 	$('#b_main_search').click(function(e) {
 		e.preventDefault()
-		var meta = {'query': $('#i_q').val()}
-
-		$.ajax({
-			url: '/q',
-			type: 'post',
-			data: JSON.stringify(meta),
-			headers: {'Authorization': 'Basic ' + sget('auth_token')},
-			dataType: 'json',
-			success: function(response) {
-				console.log('query response')
-				if (response['result']) {
-					view_search_results(response['results'])
-				} else {
-					$('#content').html('Query returned a failure')
-				}
-			},
-			error: function(xhr, textStatus, errorThrown) {
-				$('#content').html('Failed to submit query')
-			}
-		})
+		view_search_results($('#i_q').val(), 1)
 	})
 
 }
 
-function format_search_results(results) {
-	var content = ''
-	for (var i=0; i<results['documents'].length; i++) {
-		var url = results['documents'][i]['url']
-		content += '<tr>'
-		content += '<td><a href=\"'+url+'\">'+url+'</a></td>'
-		content += '</tr>'
+function format_search_meta(results) {
+	var query = results['query']
+	var pagenum = results['pagenum']
+	var pagecount = results['pagecount']
+	var result_start = results['result_start']
+	var result_end = results['result_end']
+	var result_total = results['result_total']
+
+	var content = '<div class=\"span12\">'
+	content += '<div class=\"span2\">'
+	content += '<h3>Page '+pagenum+' of '+pagecount+'</h3>'
+	content += '</div>'
+	content += '<div class=\"span10\">'
+	content += '<div class=\"pagination pagination-right\"><ul>'
+	for (var i=0; i<pagecount; i++) {
+		page_id = i+1
+		content += '<li><a href=\"#\" onclick=\"view_search_results(\''+query+'\', '+page_id+')\">'+page_id+'</a></li>'
 	}
+	content += '</ul></div>'
+	content += '</div>'
+	content += '</div>'
 	return content
 }
 
-function view_search_results(results) {
-	var content = '<form>'
-	content += '<input type=\"text\" class=\"input-block-level search-query\" id=\"i_q\" />'
-	content += '<button class=\"btn\" id=\"b_search\"><i class=\"icon-thumbs-up\" /> Go</button>'
-	content += '<button class=\"btn\" id=\"b_adv_search\"><i class=\"icon-thumbs-up\" /> Advanced</button>'
-	content += '</form>'
-	content += '<table class=\"table table-hover\" id=\"t_search_results\">'
-	content += '</table>'
-	$('#content').html(content)
+function format_search_results(results) {
+	var content = '<div class=\"accordion\" id=\"accordion2\">'
+	for (var i=0; i<results['documents'].length; i++) {
+		var url = results['documents'][i]['url']
+		var uid = results['documents'][i]['uid']
+		var gid = results['documents'][i]['gid']
+		var mtime = results['documents'][i]['mtime']
+		var size = results['documents'][i]['size']
+		var rank = results['documents'][i]['rank']
+		var score = results['documents'][i]['score'].toPrecision(3)
 
-	$('#t_search_results').html(format_search_results(results))
+		mtime_t = mtime.split('-')
+		var year = mtime_t[0]
+		var month = int_to_month[parseInt(mtime_t[1], 10)]
+		var day = mtime_t[2].split('T')[0]
+		var time = mtime_t[2].split('T')[1]
+		var date = month+' '+day+' '+time+' CEST '+year
+
+		var url_t = url.split('/')
+		var proto = url_t[0].replace(':', '')
+		var server = url_t[2]
+		var safe_url = proto+'://'+server
+		var raw_path = url.replace(safe_url, '')
+		safe_url += escape(raw_path)
+
+		content += '<div class=\"accordion-group\">'
+		content += '<div class=\"accordion-heading\">'
+		content += '<a class=\"accordion-toggle\" data-toggle=\"collapse\" data-parent=\"#accordion2\" href=\"#c'+rank+'\">'
+		content += '<span onclick=\"window.location.href=\''+safe_url+'\'; event.stopPropagation()\">'+url+'</span>'
+		content += '</a>'
+		content += '</div>'
+		content += '<div id=\"c'+rank+'\" class=\"accordion-body collapse\">'
+		content += '<div class=\"accordion-inner\">'
+		content += 'Rank: '+rank+', Score: '+score+', Size: '+size+'B, Last modified: '+date
+		content += '</div>'
+		content += '</div>'
+		content += '</div>'
+
+	}
+	content += '</div>'
+	return content
+}
+
+function view_search_results(query, page) {
+	if (!page) {
+		page = 1
+	}
+	var content = '<div class=\"row-fluid\">'
+	content += '<div class=\"span12\">'
+	content += '<div class=\"span10\">'
+	content += '<input type=\"text\" class=\"input-block-level search-query\" id=\"i_q\" />'
+	content += '</div>'
+	content += '<div class=\"span2\">'
+	content += '<div class=\"btn-group\">'
+	content += '<button class=\"btn\" id=\"b_search\"><i class=\"icon-thumbs-up\" /> Go</button>'
+	content += '<button class=\"btn\" id=\"b_adv_search\"><i class=\"icon-filter\" /> Advanced</button>'
+	content += '</div>'
+	content += '</div>'
+	content += '</div>'
+	content += '<div class=\"span12\" id=\"d_search_meta\">'
+	content += '</div>'
+	content += '<div class=\"span12\" id=\"d_search_results\">'
+	content += '</div>'
+	content += '</div>'
+
+	$('#content').html(content)
+	$('#i_q').val(query)
+
+	var meta = {
+		'query': query,
+		'page': page,
+		'pagelen': 10,
+	}
+
+	$.ajax({
+		url: '/q',
+		type: 'post',
+		data: JSON.stringify(meta),
+		headers: {'Authorization': 'Basic ' + sget('auth_token')},
+		dataType: 'json',
+		success: function(response) {
+			if (response['result']) {
+				results = response['results']
+				results['query'] = query
+				$('#d_search_meta').html(format_search_meta(results))
+				$('#d_search_results').html(format_search_results(results))
+			} else {
+				$('#content').html('Query returned a failure')
+			}
+		},
+		error: function(xhr, textStatus, errorThrown) {
+			$('#content').html('Failed to submit query')
+		}
+	})
 
 	$('#b_search').click(function(e) {
 		e.preventDefault()
@@ -465,9 +552,11 @@ function view_search_results(results) {
 			headers: {'Authorization': 'Basic ' + sget('auth_token')},
 			dataType: 'json',
 			success: function(response) {
-				console.log('query response')
 				if (response['result']) {
-					$('#t_search_results').html(format_search_results(response['results']))
+					results = response['results']
+					results['query'] = query
+					$('#d_search_meta').html(format_search_meta(results))
+					$('#d_search_results').html(format_search_results(results))
 				} else {
 					$('#content').html('Query returned a failure')
 				}

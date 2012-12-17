@@ -103,3 +103,8 @@ padding: 7px 9px;
 #d_search {
 	padding-top: 100px;
 }
+
+.d_search_meta {
+	color: #888888;
+	font-size: 11px;
+}

@@ -67,17 +67,26 @@ class WhooshIndex:
         self.writer = whoosh.writing.BufferedWriter(self.idx, period=60, limit=10000)
         self.qparser = whoosh.qparser.QueryParser('url', schema=self._schema)
 
-    def query(self, query):
+    def query(self, query, page=1, pagelen=10):
         results = {
             'documents': [],
             'hits': 0
         }
         q = self.qparser.parse(query)
         with self.idx.searcher() as s:
-            r = s.search(q)
+            r = s.search_page(q, page, pagelen=pagelen)
             for (docid, raw_doc) in enumerate(r):
+                rank = raw_doc.rank
+                score = raw_doc.score
                 raw_doc = dict(raw_doc)
+                raw_doc['rank'] = rank
+                raw_doc['score'] = score
                 results['documents'].append(raw_doc)
                 results['hits'] += 1
-       
+            results['pagenum'] = r.pagenum
+            results['pagecount'] = r.pagecount
+            results['result_start'] = r.offset + 1
+            results['result_end'] = r.offset + r.pagelen + 1
+            results['result_total'] = len(r)
+
         return results

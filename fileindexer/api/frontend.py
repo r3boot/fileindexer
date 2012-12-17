@@ -1,19 +1,24 @@
 import bottle
+import datetime
 import json
 import os
 
-from fileindexer.decorators.frontend import must_authenticate
+from fileindexer.decorators import must_authenticate, must_be_admin
+from fileindexer.backends.mongodb import Users, Servers
+from fileindexer.backends.whoosh_index import WhooshIndex
 
 class FrontendAPI:
     __valid_config_items = ['paths']
     users = None
 
-    def __init__(self, logger, listen_ip, listen_port, backend):
+    def __init__(self, logger, listen_ip, listen_port):
         self.logger = logger
-        self.backend = backend
         self.__l = logger
         self.__listen_ip = listen_ip
         self.__listen_port = listen_port
+        self.users = Users(logger)
+        self.servers = Servers(logger)
+        self.idx = WhooshIndex(logger)
 
     def __deserialize(self, data):
         try:
@@ -22,9 +27,9 @@ class FrontendAPI:
             self.__l.error(e)
             self.__l.debug(data)
 
-        if len(data) > 0:
-            for k,v in data.items():
-                self.__l.debug('%s: %s' % (k, v))
+        #if len(data) > 0:
+        #    for k,v in data.items():
+        #        self.__l.debug('%s: %s' % (k, v))
         return data
 
     def __get_username(self):
@@ -62,85 +67,10 @@ class FrontendAPI:
 
     @must_authenticate()
     def test_authentication(self, *args, **kwargs):
-        response = self.backend.test_authentication(*args, **kwargs)
-        return response
-            
-    def get_files(self, *args, **kwargs):
-        request = self.__deserialize(bottle.request.body.readline())
-        if 'parent' in request:
-            files = []
-            for f in self.files.get(request['parent']):
-                f['last_modified'] = f['last_modified'].isoformat()
-                files.append(f)
-            return {'result': True, 'files': files}
-        else:
-            return {'result': False, 'message': 'invalid index'}
-
-    def add_file(self):
-        request = self.__deserialize(bottle.request.body.readline())
-        if 'meta' in request:
-            _id = self.files.add(request['meta'])
-            return {'result': True, '_id': _id}
-        else:
-            return {'result': False, 'message': 'Failed to retrieve metadata'}
+        return {'result': True, 'message': 'authenticated'}
 
     @must_authenticate()
-    def get_indexes(self, *args, **kwargs):
-        username = kwargs['username']
-        indexes = []
-        for idx in self.indexes.list(username):
-            del(idx['_id'])
-            indexes.append(idx)
-        
-        if indexes:
-            return {'result': True, 'indexes': indexes}
-        else:
-            return {'result': False, 'message': 'No indexes found'}
-
-    @must_authenticate()
-    def get_index(self, *args, **kwargs):
-        username = kwargs['username']
-        request = self.__deserialize(bottle.request.body.readline())
-        idx = self.index.get(username, request['path'])
-        if idx:
-            return {'result': True, 'index': idx}
-        else:
-            return {'result': False, 'message': 'Failed to retrieve index'}
-
-    @must_authenticate()
-    def update_index(self, *args, **kwargs):
-        request = self.__deserialize(bottle.request.body.readline())
-        username = self.__get_username()
-        if request['username'] != username:
-            bottle.abort(401, 'Access denied')
-        self.indexes.update(request)
-        return {'result': True, 'message': 'Index updated'}
-
-    @must_authenticate()
-    def add_index(self, *args, **kwargs):
-        request = self.__deserialize(bottle.request.body.readline())
-        username = kwargs['username']
-        server = kwargs['server']
-        request['username'] = username
-        request['server'] = server['hostname']
-        if 'path' in request:
-            if self.indexes.add(request):
-                return {'result': True, 'message': 'Path %s added to indexes' % request['path']}
-            else:
-                return {'result': False, 'message': 'Failed to add %s' % request['path']}
-        else:
-            return {'result': False, 'message': 'No index info received'}
-
-    @must_authenticate()
-    def remove_index(self, *args, **kwargs):
-        request = self.__deserialize(bottle.request.body.readline())
-        username = kwargs['username']
-        if self.indexes.remove(username, request['path']):
-            return {'result': True, 'message': 'Index removed succesfully'}
-        else:
-            return {'result': False, 'message': 'Failed to remove index'}
-
-    @must_authenticate()
+    @must_be_admin()
     def get_users(self, *args, **kwargs):
         users = self.users.list()
         if users:
@@ -166,6 +96,7 @@ class FrontendAPI:
         return {'result': True, 'message': 'User profile updated'}
 
     @must_authenticate()
+    @must_be_admin()
     def add_user(self, *args, **kwargs):
         request = self.__deserialize(bottle.request.body.readline())
         if 'user' in request:
@@ -174,6 +105,7 @@ class FrontendAPI:
             return {'result': False, 'message': 'No userinfo received'}
 
     @must_authenticate()
+    @must_be_admin()
     def remove_user(self, *args, **kwargs):
         username = args[0]
         if self.users.remove(username):
@@ -223,7 +155,24 @@ class FrontendAPI:
     def query(self, *args, **kwargs):
         request = self.__deserialize(bottle.request.body.readline())
         if 'query' in request:
-            response = self.backend.query(request)
-            return response
-        else:
-            return {'result': False, 'message': 'Invalid request'}
+            if 'page' in request:
+                page = request['page']
+            else:
+                page = 1
+            if 'pagelen' in request:
+                pagelen = request['pagelen']
+            else:
+                pagelen = 10
+
+            self.__l.debug('Q: %s' % request['query'])
+            r = self.idx.query(request['query'], page=page, pagelen=pagelen)
+            documents = []
+            for doc in r['documents']:
+                for k,v in doc.items():
+                    if isinstance(v, datetime.datetime):
+                        doc[k] = v.isoformat()
+                    else:
+                        doc[k] = v
+                documents.append(doc)
+            r['documents'] = documents
+            return {'result': True, 'results': r}

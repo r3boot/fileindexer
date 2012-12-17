@@ -82,6 +82,12 @@ class Users(MongoAPI):
             for user in self._default_users:
                 self.add(user)
 
+    def validate_password(self, username, password):
+        if username in self.list():
+            user = self.get(username)
+            pwdhash = hashlib.sha256('%s %s' % (self._salt, password)).hexdigest()
+            return pwdhash == user['password']
+
     def list(self):
         users = []
         for user in self.collection.find():
