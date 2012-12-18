@@ -12,8 +12,11 @@ import os
 import stat
 import threading
 
+import hachoir_core.config
+hachoir_core.config.quiet = True
+
 class IndexWriter:
-    _00index_include = ['size', 'parent', 'uid', 'gid', 'mode', 'ctime', 'atime', 'mtime', 'is_dir']
+    _00index_excluded = ['00INDEX']
     def __init__(self, logger):
         self.__l = logger
 
@@ -24,14 +27,16 @@ class IndexWriter:
         fd = open(idx, 'w')
         for directory in directories:
             meta = {}
-            for k in self._00index_include:
-                meta[k] = directory[k]
+            for k,v in directory.items():
+                if not k in self._00index_excluded:
+                    meta[k] = v
             line = '%s\t%s\n' % (directory['filename'], json.dumps(meta))
             fd.write(line)
         for file in files:
             meta = {}
-            for k in self._00index_include:
-                meta[k] = file[k]
+            for k,v in file.items():
+                if not k in self._00index_excluded:
+                    meta[k] = v
             line = '%s\t%s\n' % (file['filename'], json.dumps(meta))
             fd.write(line)
         fd.close()
@@ -50,6 +55,31 @@ class IndexWriter:
 
 class HachoirMetadataParser:
     #__unparseable = ['nfo', 'cue', 'diz', 'message', 'log', 'lsm', 'com', 'int', 'sub', 'mar', 'idx', 'bin', 'def', 'for', 'in', '1', 'l', 'str', 'nzb', 'obj', 'CUE']
+    _remapper = {
+        'Duration': 'duration',
+        'Image width': 'width',
+        'Image height': 'height',
+        'Frame rate': 'framerate',
+        'Bit rate': 'bitrate',
+        'Sample rate': 'samplerate',
+        'Comment': 'comment',
+        'Endianness': 'endianness',
+        'Compression rate': 'compression_rate',
+        'Compression': 'compression',
+        'Channel': 'channel',
+        'Language': 'language',
+        'Title': 'title',
+        'Author': 'author',
+        'Artist': 'artist',
+        'Album': 'album',
+        'Producer': 'producer',
+        'Common': '',
+        'Video stream': 'video',
+        'Audio stream': 'audio',
+        'Subtitle': 'subtitle',
+        'File': 'file',
+        'Metadata': 'file',
+    }
 
     def __init__(self, logger):
         self.__l = logger
@@ -61,7 +91,10 @@ class HachoirMetadataParser:
         #if ext in self.__unparseable:
         #    return False
 
-        filename, real_filename = hachoir_core.cmd_line.unicodeFilename(filename, self.charset), filename
+        try:
+            filename, real_filename = hachoir_core.cmd_line.unicodeFilename(filename, self.charset), filename
+        except TypeError:
+            real_filename = filename
 
         # Create parser
         try:
@@ -91,8 +124,12 @@ class HachoirMetadataParser:
 
         # Convert metadata to dictionary
         meta = {}
+   
         cur_k = None
         for line in str(metadata).split('\n'):
+            if line.startswith('File \"'):
+                continue
+
             line = unicode(line)
             if line.startswith('-'):
                 # this is an attribute
@@ -100,15 +137,16 @@ class HachoirMetadataParser:
                 (k, v) = line.split(': ')[:2]
                 ## TODO: ugly hack
                 try:
-                    meta[cur_k][k] = v
+                    if cur_k == '':
+                        key = self._remapper[k]
+                    else:
+                        key = '%s_%s' % (cur_k, self._remapper[k])
+                    meta[key] = v
                 except KeyError:
                     pass
             else:
                 # this is a category
-                cur_k = line.replace(':', '')
-                if not cur_k.startswith('File "'):
-                    meta[cur_k] = {}
-
+                cur_k = self._remapper[line.replace(':', '')]
         return meta
 
 class Indexer(threading.Thread):
@@ -306,7 +344,7 @@ class Indexer(threading.Thread):
     }
     _excluded = ['00INDEX', '00SUMS', '00METADATA']
 
-    def __init__(self, logger, path, do_stat=True, do_hachoir=False, hachoir_quality=0.5, ignore_symlinks=True):
+    def __init__(self, logger, path, do_stat=True, do_hachoir=True, hachoir_quality=0.5, ignore_symlinks=True):
         threading.Thread.__init__(self)
         self.hmp = HachoirMetadataParser(logger)
         self.iw = IndexWriter(logger)
@@ -377,7 +415,6 @@ class Indexer(threading.Thread):
     def add(self, parent, path):
         meta = {}
         meta['filename'] = os.path.basename(path)
-        meta['parent'] = parent
 
         try:
             st = os.stat(path)
