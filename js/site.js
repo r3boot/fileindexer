@@ -395,7 +395,7 @@ function show_add_rewrite_box() {
 
 function view_search() {
 	var content = '<div class=\"container-fluid\" id=\"d_search\">'
-	content += '<div class=\"center hero-unit\">'
+	content += '<div class=\"center hero-unit base01_bg\">'
 	content += '<div class=\"row-fluid\">'
 	content += '<div class=\"span12\">'
 	content += '<div class=\"span10\">'
@@ -417,6 +417,14 @@ function view_search() {
 	$('#b_main_search').click(function(e) {
 		e.preventDefault()
 		view_search_results($('#i_q').val(), 1)
+	})
+
+	$('#i_q').keypress(function(e) {
+		var code = (e.keyCode ? e.keyCode : e.which);
+		if (code == 13) {
+			e.preventDefault();
+			view_search_results($('#i_q').val(), 1)
+		}
 	})
 
 }
@@ -470,7 +478,7 @@ function format_search_results(results) {
 		var raw_path = url.replace(safe_url, '')
 		safe_url += escape(raw_path)
 
-		content += '<div class=\"accordion-group\">'
+		content += '<div class=\"accordion-group base2_bg\">'
 		content += '<div class=\"accordion-heading\">'
 		content += '<a class=\"accordion-toggle\" data-toggle=\"collapse\" data-parent=\"#accordion2\" href=\"#c'+rank+'\">'
 		content += '<span onclick=\"window.location.href=\''+safe_url+'\'; event.stopPropagation()\">'+url+'</span>'
@@ -543,7 +551,6 @@ function view_search_results(query, page) {
 	$('#b_search').click(function(e) {
 		e.preventDefault()
 		var meta = {'query': $('#i_q').val()}
-		console.log('here')
 
 		$.ajax({
 			url: '/q',
@@ -565,6 +572,14 @@ function view_search_results(query, page) {
 				$('#content').html('Failed to submit query')
 			}
 		})
+	})
+
+	$('#i_q').keypress(function(e) {
+		var code = (e.keyCode ? e.keyCode : e.which);
+		if (code == 13) {
+			e.preventDefault();
+			view_search_results($('#i_q').val(), 1)
+		}
 	})
 }
 
