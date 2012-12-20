@@ -395,7 +395,7 @@ function show_add_rewrite_box() {
 
 function view_search() {
 	var content = '<div class=\"container-fluid\" id=\"d_search\">'
-	content += '<div class=\"center hero-unit base01_bg\">'
+	content += '<div class=\"center hero-unit medium_bg\">'
 	content += '<div class=\"row-fluid\">'
 	content += '<div class=\"span12\">'
 	content += '<div class=\"span10\">'
@@ -478,9 +478,9 @@ function format_search_results(results) {
 		var raw_path = url.replace(safe_url, '')
 		safe_url += escape(raw_path)
 
-		content += '<div class=\"accordion-group base2_bg\">'
+		content += '<div class=\"accordion-group medium_bg\">'
 		content += '<div class=\"accordion-heading\">'
-		content += '<a class=\"accordion-toggle\" data-toggle=\"collapse\" data-parent=\"#accordion2\" href=\"#c'+rank+'\">'
+		content += '<a class=\"accordion-toggle dark_fg\" data-toggle=\"collapse\" data-parent=\"#accordion2\" href=\"#c'+rank+'\">'
 		content += '<span onclick=\"window.location.href=\''+safe_url+'\'; event.stopPropagation()\">'+url+'</span>'
 		content += '</a>'
 		content += '</div>'

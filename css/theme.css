@@ -1,0 +1,32 @@
+/*
+ * Dark (#403e39)
+ */
+.dark_fg {
+	color: #403e39;
+}
+
+.dark_bg {
+	background: #403e39;
+}
+
+/*
+ * Medium (#969386)
+ */
+.medium_fg {
+	color: #969386;
+}
+
+.medium_bg {
+	background: #969386;
+}
+
+/*
+ * Light (#eee8d5)
+ */
+.light_fg {
+	color: #eee8d5;
+}
+
+.light_bg {
+	background: #eee8d5;
+}
