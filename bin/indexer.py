@@ -8,7 +8,7 @@ import multiprocessing
 import os
 import stat
 import sys
-import tempfile
+#import tempfile
 import time
 
 sys.path.append('/people/r3boot/fileindexer')
@@ -16,6 +16,7 @@ sys.path.append('/people/r3boot/fileindexer')
 from fileindexer.log import get_logger
 from fileindexer.indexer.hachoir_meta_parser import HachoirMetadataParser, hachoir_mapper
 from fileindexer.indexer.index_writer import IndexWriter
+from fileindexer.backends.redis_queue import RedisQueue
 
 __description__ = 'File Indexer'
 
@@ -35,89 +36,109 @@ ll2str = {
 }
 
 def indexer_task(args):
-    fifo_in = args[0]
-    fifo_out = args[0]
-    out_q = args[1]
-    do_stat = args[2]
-    do_hachoir = args[3]
-    hachoir_quality = args[4]
-    ignore_symlinks = args[5]
-    excluded = args[6]
-    log_level = args[7]
-    lock = args[8]
+    worker_id = args[0]
+    kwargs = args[1]
 
-    logger = get_logger(log_level)
+    logger = get_logger(kwargs['log_level'])
+    queue = RedisQueue(logger, 'fileindexer')
     hmp = HachoirMetadataParser(logger)
     idxwriter = IndexWriter(logger)
 
+    """
     fd_in = os.open(fifo_in, os.O_RDONLY)
     fd_out = os.open(fifo_out, os.O_WRONLY | os.O_NONBLOCK)
+    """
 
-    empty_counter = 0
+    #empty_counter = 0
+    #max_path_length = 2048
     while True:
+        if queue.empty():
+            print('Queue is empty')
+            time.sleep(0.5)
+            continue
+
+        path = queue.get()
+        """
+        ch = None
         ch = os.read(fd_in, 1)
-        if ch == '':
-            if empty_counter == 60:
+        if len(ch) == 0:
+            if empty_counter == 5:
+                logger.debug('(worker %s) Queue assumed empty, breaking' % worker_id)
                 break
             else:
+                logger.debug('(worker %s) Increasing empty_counter: %s' % (worker_id, empty_counter))
                 empty_counter += 1
                 time.sleep(1.0)
+
+        path = None
         path = ''
+        path_length = None
+        path_length = 0
         while ch != '\n':
+            if path_length > max_path_length:
+                logger.warn('(worker %s) max_path_length reached, resetting' % worker_id)
+                continue
             path += ch
+            path_length += 1
             ch = os.read(fd_in, 1)
-        print('path: %s' % path)
 
         if path == '!!__POISON__!!':
-            logger.debug('Received poison pill, exiting')
+            logger.debug('(worker %s) Received poison pill, exiting' % worker_id)
             break
+        """
 
-        #logger.debug('get: %s' % path)
+        print('(worker %s) Indexing: %s' % (worker_id, path))
 
+        results = None
         results = {}
         results['path'] = path
         results['metadata'] = []
         if not os.access(path, os.R_OK | os.X_OK):
-            logger.warn('Cannot access %s' % path)
+            logger.warn('(worker %s) Cannot access %s' % (worker_id, path))
             continue
 
+        found = None
         for found in os.listdir(path):
-            if found in excluded:
+            if found in kwargs['excluded']:
                 continue
             try:
                 found = unicode(found)
             except UnicodeDecodeError:
-                logger.warn('Cannot encode %s to unicode' % found)
+                logger.warn('(worker %s) Cannot encode %s to unicode' % (worker_id, found))
                 continue
 
             try:
                 path = unicode(path)
             except UnicodeDecodeError:
-                logger.warn('Cannot encode %s to unicode' % found)
+                logger.warn('(worker %s) Cannot encode %s to unicode' % (worker_id, found))
                 continue
 
+            meta = None
             meta = {}
             meta['filename'] = found
 
+            full_path = None
             full_path = os.path.join(path, found)
+            st = None
             try:
                 st = os.stat(full_path)
             except OSError, e:
-                logger.warn('Cannot stat %s' % full_path)
+                logger.warn('(worker %s) Cannot stat %s' % (worker_id, full_path))
                 logger.warn(e)
                 continue
 
-            if ignore_symlinks and stat.S_ISLNK(st.st_mode):
-                logger.warn('Skipping symlink %s' % full_path)
+            if kwargs['ignore_symlinks'] and stat.S_ISLNK(st.st_mode):
+                logger.warn('(worker %s) Skipping symlink %s' % (worker_id, full_path))
                 continue
 
             meta['is_dir'] = stat.S_ISDIR(st.st_mode)
             if meta['is_dir']:
-                os.write(fd_out, '%s\n' % full_path)
+                queue.put(full_path)
+                ##os.write(fd_out, '%s\n' % full_path)
 
             meta['checksum'] = hashlib.md5('%s %s' % (found, st.st_size)).hexdigest()
 
-            if do_stat:
+            if kwargs['do_stat']:
                 meta['mode'] = st.st_mode
                 meta['uid'] = st.st_uid
                 meta['gid'] = st.st_gid
@@ -126,7 +147,8 @@ def indexer_task(args):
                 meta['mtime'] = st.st_mtime
                 meta['ctime'] = st.st_ctime
 
-            if not meta['is_dir'] and do_hachoir:
+            if not meta['is_dir'] and kwargs['do_hachoir']:
+                types = None
                 types = mimetypes.guess_type(full_path)
                 if types[0] != None:
                     meta['mime'] = types[0]
@@ -137,7 +159,8 @@ def indexer_task(args):
                             t = mimetype
                             break
                     if t:
-                        hmp_meta = hmp.extract(full_path, hachoir_quality,  hachoir_mapper[t])
+                        hmp_meta = None
+                        hmp_meta = hmp.extract(full_path, kwargs['quality'],  hachoir_mapper[t])
                         if hmp_meta:
                             for k,v in hmp_meta.items():
                                 meta[k] = v
@@ -145,9 +168,6 @@ def indexer_task(args):
             results['metadata'].append(meta)
 
         idxwriter.write_indexes(path, results['metadata'])
-    else:
-        logger.debug('Waiting for work')
-        time.sleep(1.0)
     logger.debug('worker exiting')
 
 def main():
@@ -184,18 +204,26 @@ def main():
 
     ## Setup multiprocessing
     num_workers = int(args.num_workers)
-    manager = multiprocessing.Manager()
-    in_q = manager.Queue()
-    out_q = manager.Queue()
-    lock = manager.Lock()
-    pool = multiprocessing.Pool(processes=num_workers)
+    mp_pool = multiprocessing.Pool(processes=num_workers)
+    queue = RedisQueue(logger, 'fileindexer')
 
     ## Preseed queue
-    input_buffer = []
+    #input_buffer = []
     for path in args.path:
-        input_buffer.append(path)
+        queue.put(path)
 
     ## Fire up workers
+    task_args = {
+        'log_level': log_level,
+        'do_stat': args.do_stat,
+        'do_hachoir': args.do_hachoir,
+        'quality': args.quality,
+        'ignore_symlinks': args.ignore_symlinks,
+        'excluded': excluded
+    }
+    mp_pool.map_async(indexer_task, [(worker_id, task_args) for worker_id in xrange(num_workers)])
+
+    """
     tasks = []
     fifo_fds_in = []
     fifo_fds_out = []
@@ -204,33 +232,64 @@ def main():
         (fd_out, fifo_out) = tempfile.mkstemp()
         fd_in = os.open(fifo_in, os.O_WRONLY | os.O_NONBLOCK)
         fd_out = os.open(fifo_out, os.O_RDONLY)
-        tasks.append((fifo_in, fifo_out, args.do_stat, args.do_hachoir, args.quality, args.ignore_symlinks, excluded, log_level, lock))
+        tasks.append((fifo_in, fifo_out, args.do_stat, args.do_hachoir, args.quality, args.ignore_symlinks, excluded, log_level, worker))
         fifo_fds_in.append(fd_in)
         fifo_fds_out.append(fd_out)
-    print(tasks)
-    pool.map_async(indexer_task, tasks)
+    mp_pool.map_async(indexer_task, tasks)
+    """
 
-    i = 0
-    while True:
-        for item in input_buffer:
-            if i == num_workers:
-                i = 0
-            logger.debug('sending job to worker %s' % i)
-            os.write(fifo_fds_in[i], '%s\n' % item)
-            i += 1
-        input_buffer = []
+    while not queue.empty():
+        logger.debug('queue size: %s' % queue.qsize())
+        time.sleep(1)
+
+    """
+    quit_loop = False
+    max_path_size = 2048
+    j = 0
+    while not quit_loop:
+        ## Fill input_buffer
+        reset_path = None
+        reset_path = False
+        ch = None
         for i in xrange(num_workers):
-            ch = os.read(fifo_fds_out[i], 1)
-            if ch == '':
-                break
+            path = None
             path = ''
-            while ch != '\n':
+            path_size = None
+            path_size = 0
+            ch = os.read(fifo_fds_out[i], 1)
+            while ch != '':
+                if path_size > max_path_size:
+                    logger.warn('max_path_size reached, resetting')
+                    reset_path = True
+                    break
+                if ch == '\n':
+                    if reset_path:
+                        path = None
+                        path = ''
+                        reset_path = False
+                    break
                 path += ch
+                path_size += 1
                 ch = os.read(fifo_fds_out[i], 1)
-            input_buffer.append(path)
 
-    pool.close()
-    pool.join()
+            if len(path) > 0:
+                input_buffer.append(path)
+        i = None
+
+        ## Flush input_buffer
+        for item in input_buffer:
+            if j == num_workers:
+                j = None
+                j = 0
+            os.write(fifo_fds_in[j], '%s\n' % item)
+            j += 1
+        item = None
+        input_buffer = None
+        input_buffer = []
+    """
+
+    mp_pool.close()
+    mp_pool.join()
 
 if __name__ == "__main__":
     main()
