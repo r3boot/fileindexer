@@ -8,7 +8,6 @@
 * file checksumming
 
 == Web interface ==
-* Add whoosh search page
 * Keep playing with interface styles until I find something cool
 * popups with an transparent & darkened overlay over the content below it
 * Consistency!
@@ -16,4 +15,5 @@
 * More error handling
 
 == Architecture ==
-* Finish switchover to whoosh
+* Rework crawler to indexer multiprocessing model
+* Fix redis queue locking issues
