@@ -22,6 +22,7 @@ __description__ = 'File Indexer'
 
 _d_debug = False
 _d_num_workers = 4
+_d_resume = False
 _d_do_stat = True
 _d_do_hachoir = True
 _d_hachoir_quality = 0.5
@@ -44,49 +45,22 @@ def indexer_task(args):
     hmp = HachoirMetadataParser(logger)
     idxwriter = IndexWriter(logger)
 
-    """
-    fd_in = os.open(fifo_in, os.O_RDONLY)
-    fd_out = os.open(fifo_out, os.O_WRONLY | os.O_NONBLOCK)
-    """
+    empty_counter = 0
+    stop = False
+    while not stop:
+        if empty_counter > kwargs['max_empty_time']:
+            logger.debug('worker %s) Queue is empty, exiting' % empty_counter)
+            stop = True
 
-    #empty_counter = 0
-    #max_path_length = 2048
-    while True:
         if queue.empty():
-            print('Queue is empty')
-            time.sleep(0.5)
+            empty_counter += 1
+            time.sleep(1)
             continue
-
-        path = queue.get()
-        """
-        ch = None
-        ch = os.read(fd_in, 1)
-        if len(ch) == 0:
-            if empty_counter == 5:
-                logger.debug('(worker %s) Queue assumed empty, breaking' % worker_id)
-                break
-            else:
-                logger.debug('(worker %s) Increasing empty_counter: %s' % (worker_id, empty_counter))
-                empty_counter += 1
-                time.sleep(1.0)
+        else:
+            empty_counter = 0
 
         path = None
-        path = ''
-        path_length = None
-        path_length = 0
-        while ch != '\n':
-            if path_length > max_path_length:
-                logger.warn('(worker %s) max_path_length reached, resetting' % worker_id)
-                continue
-            path += ch
-            path_length += 1
-            ch = os.read(fd_in, 1)
-
-        if path == '!!__POISON__!!':
-            logger.debug('(worker %s) Received poison pill, exiting' % worker_id)
-            break
-        """
-
+        path = queue.get()
         print('(worker %s) Indexing: %s' % (worker_id, path))
 
         results = None
@@ -134,7 +108,6 @@ def indexer_task(args):
             meta['is_dir'] = stat.S_ISDIR(st.st_mode)
             if meta['is_dir']:
                 queue.put(full_path)
-                ##os.write(fd_out, '%s\n' % full_path)
 
             meta['checksum'] = hashlib.md5('%s %s' % (found, st.st_size)).hexdigest()
 
@@ -180,6 +153,8 @@ def main():
 
     parser.add_argument('--workers', dest='num_workers', action='store',
         default=_d_num_workers, help='Number of indexer workers')
+    parser.add_argument('--resume', dest='resume', action='store_true',
+        default=_d_resume, help='Continue a previously broken off index run')
 
     parser.add_argument('--disable-stat', dest='do_stat', action='store_false',
         default=_d_do_stat, help='Disable indexing of stat() information')
@@ -206,11 +181,12 @@ def main():
     num_workers = int(args.num_workers)
     mp_pool = multiprocessing.Pool(processes=num_workers)
     queue = RedisQueue(logger, 'fileindexer')
+    max_empty_time = 3
 
-    ## Preseed queue
-    #input_buffer = []
-    for path in args.path:
-        queue.put(path)
+    if not args.resume:
+        queue.clear()
+        for path in args.path:
+            queue.put(path)
 
     ## Fire up workers
     task_args = {
@@ -219,74 +195,24 @@ def main():
         'do_hachoir': args.do_hachoir,
         'quality': args.quality,
         'ignore_symlinks': args.ignore_symlinks,
-        'excluded': excluded
+        'excluded': excluded,
+        'max_empty_time': max_empty_time
     }
     mp_pool.map_async(indexer_task, [(worker_id, task_args) for worker_id in xrange(num_workers)])
 
-    """
-    tasks = []
-    fifo_fds_in = []
-    fifo_fds_out = []
-    for worker in xrange(num_workers):
-        (fd_in, fifo_in) = tempfile.mkstemp()
-        (fd_out, fifo_out) = tempfile.mkstemp()
-        fd_in = os.open(fifo_in, os.O_WRONLY | os.O_NONBLOCK)
-        fd_out = os.open(fifo_out, os.O_RDONLY)
-        tasks.append((fifo_in, fifo_out, args.do_stat, args.do_hachoir, args.quality, args.ignore_symlinks, excluded, log_level, worker))
-        fifo_fds_in.append(fd_in)
-        fifo_fds_out.append(fd_out)
-    mp_pool.map_async(indexer_task, tasks)
-    """
+    empty_count = 0
+    while True:
+        if empty_count > max_empty_time:
+            logger.debug('Queue empty, exiting')
+            break
 
-    while not queue.empty():
+        if queue.empty():
+            empty_count += 1
+        else:
+            empty_count = 0
+
         logger.debug('queue size: %s' % queue.qsize())
         time.sleep(1)
-
-    """
-    quit_loop = False
-    max_path_size = 2048
-    j = 0
-    while not quit_loop:
-        ## Fill input_buffer
-        reset_path = None
-        reset_path = False
-        ch = None
-        for i in xrange(num_workers):
-            path = None
-            path = ''
-            path_size = None
-            path_size = 0
-            ch = os.read(fifo_fds_out[i], 1)
-            while ch != '':
-                if path_size > max_path_size:
-                    logger.warn('max_path_size reached, resetting')
-                    reset_path = True
-                    break
-                if ch == '\n':
-                    if reset_path:
-                        path = None
-                        path = ''
-                        reset_path = False
-                    break
-                path += ch
-                path_size += 1
-                ch = os.read(fifo_fds_out[i], 1)
-
-            if len(path) > 0:
-                input_buffer.append(path)
-        i = None
-
-        ## Flush input_buffer
-        for item in input_buffer:
-            if j == num_workers:
-                j = None
-                j = 0
-            os.write(fifo_fds_in[j], '%s\n' % item)
-            j += 1
-        item = None
-        input_buffer = None
-        input_buffer = []
-    """
 
     mp_pool.close()
     mp_pool.join()

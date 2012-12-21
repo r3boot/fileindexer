@@ -7,10 +7,13 @@ class RedisQueue:
         self.__queue = redis.Redis(connection_pool=pool)
         self.__name = name
 
-    def get(self):
+    def clear(self):
+        return self.__queue.flushdb()
+
+    def get(self, timeout=0):
         return self.__queue.lpop(self.__name)
 
-    def put(self, item):
+    def put(self, item, timeout=0):
         return self.__queue.rpush(self.__name, item)
 
     def qsize(self):
