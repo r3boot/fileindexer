@@ -5,7 +5,7 @@ import bottle
 import logging
 import sys
 
-sys.path.append('/people/r3boot/fileindexer')
+sys.path.append('/home/r3boot/fileindexer')
 
 from fileindexer.api.frontend import FrontendAPI as API
 

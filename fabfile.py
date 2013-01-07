@@ -5,8 +5,8 @@ import os
 
 from fabric.api import settings, local
 
-remote_host = 'storage'
-remote_dir = '/people/r3boot'
+remote_host = 'motoko'
+remote_dir = '/home/r3boot'
 
 def sync(host=remote_host, directory=remote_dir):
     cwd = os.getcwd()
