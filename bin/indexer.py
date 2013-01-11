@@ -11,12 +11,12 @@ import sys
 #import tempfile
 import time
 
-sys.path.append('/people/r3boot/fileindexer')
+sys.path.append('/home/r3boot/fileindexer')
 
 from fileindexer.log import get_logger
 from fileindexer.indexer.hachoir_meta_parser import HachoirMetadataParser, hachoir_mapper
 from fileindexer.indexer.index_writer import IndexWriter
-from fileindexer.backends.redis_queue import RedisQueue
+from fileindexer.backends.filesystem_queue import FilesystemQueue
 
 __description__ = 'File Indexer'
 
@@ -41,7 +41,7 @@ def indexer_task(args):
     kwargs = args[1]
 
     logger = get_logger(kwargs['log_level'])
-    queue = RedisQueue(logger, 'fileindexer')
+    queue = FilesystemQueue(logger, 'fileindexer')
     hmp = HachoirMetadataParser(logger)
     idxwriter = IndexWriter(logger)
 
@@ -180,7 +180,7 @@ def main():
     ## Setup multiprocessing
     num_workers = int(args.num_workers)
     mp_pool = multiprocessing.Pool(processes=num_workers)
-    queue = RedisQueue(logger, 'fileindexer')
+    queue = FilesystemQueue(logger, 'fileindexer')
     max_empty_time = 3
 
     if not args.resume:

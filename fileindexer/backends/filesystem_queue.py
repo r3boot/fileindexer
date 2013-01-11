@@ -4,7 +4,7 @@ import os
 import time
 
 class FilesystemQueue:
-    def __init__(self, name, prefix_dir='/var/run', preserve=True):
+    def __init__(self, name, prefix_dir='/fileindexer/queues', preserve=True):
         self.__preserve = preserve
 
         self.__dir = os.path.join(prefix_dir, name)
