@@ -10,8 +10,6 @@ class must_authenticate(object):
         def decorator(*args, **kwargs):
             if not self.users:
                 self.users = args[0].users
-            if not self.servers:
-                self.servers = args[0].servers
             if not self.__l:
                 self.__l = args[0].logger
 
@@ -20,25 +18,15 @@ class must_authenticate(object):
             self.__l.debug('username: %s' % username)
             self.__l.debug('password: %s' % password)
 
-            if username == '_server':
-                """API key based auth"""
-                server = self.servers.get(password)
-                if not server:
-                    self.__l.error('No server found for %s' % username)
-                    bottle.abort(401, 'Access denied')
-                server = server[0]
-                user = self.users.get(server['username'])
-
-            else:
-                """User/pass based auth"""
-                user = self.users.get(username)
-                server = None
-                if not user:
-                    self.__l.error('No user found for %s' % username)
-                    bottle.abort(401, 'Access denied')
-                if not self.users.validate_password(username, password):
-                    self.__l.error('Password mismatch')
-                    bottle.abort(401, 'Access denied')
+            """User/pass based auth"""
+            user = self.users.get(username)
+            server = None
+            if not user:
+                self.__l.error('No user found for %s' % username)
+                bottle.abort(401, 'Access denied')
+            if not self.users.validate_password(username, password):
+                self.__l.error('Password mismatch')
+                bottle.abort(401, 'Access denied')
 
             return f(*args, username=user['username'], user=user, server=server, **kwargs)
         return decorator

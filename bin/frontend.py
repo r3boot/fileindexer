@@ -65,14 +65,9 @@ def main():
     bottle.route('/users',   method='DELETE') (api.remove_user)
     bottle.route('/user',    method='GET')    (api.get_user)
     bottle.route('/user',    method='POST')   (api.update_user)
-    bottle.route('/servers', method='GET')    (api.get_servers)
-    bottle.route('/servers', method='POST')   (api.add_server)
-    bottle.route('/servers', method='DELETE') (api.remove_server)
-    bottle.route('/server',  method='PUT')    (api.get_server)
-    bottle.route('/server',  method='POST')   (api.update_server)
     bottle.route('/q',       method='POST')   (api.query)
 
-    bottle.TEMPLATE_PATH.append('/people/r3boot/fileindexer/templates')
+    bottle.TEMPLATE_PATH.append('/home/r3boot/fileindexer/templates')
     api.run()
 
     return

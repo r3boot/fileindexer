@@ -9,7 +9,7 @@ import whoosh.writing
 import whoosh.qparser
 
 class WhooshIndex:
-    _index_name = 'fileindexer'
+    _index_name = 'index'
     _schema = whoosh.fields.Schema(
         url=whoosh.fields.TEXT(stored=True),
         filename=whoosh.fields.TEXT(stored=True),
@@ -24,7 +24,7 @@ class WhooshIndex:
         uid=whoosh.fields.NUMERIC(stored=True)
     )
 
-    def __init__(self, logger, index_base='/data1'):
+    def __init__(self, logger, index_base='/fileindexer'):
         self.__l = logger
         self._idx_dir = os.path.join(index_base, self._index_name)
         self.idx = None

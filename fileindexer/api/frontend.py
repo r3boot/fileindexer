@@ -4,7 +4,7 @@ import json
 import os
 
 from fileindexer.decorators import must_authenticate, must_be_admin
-from fileindexer.backends.mongodb import Users, Servers
+from fileindexer.backends.sqlite3_config import Users
 from fileindexer.backends.whoosh_index import WhooshIndex
 
 class FrontendAPI:
@@ -17,7 +17,6 @@ class FrontendAPI:
         self.__listen_ip = listen_ip
         self.__listen_port = listen_port
         self.users = Users(logger)
-        self.servers = Servers(logger)
         self.idx = WhooshIndex(logger)
 
     def __deserialize(self, data):
@@ -37,28 +36,29 @@ class FrontendAPI:
         return username
 
     def run(self):
-        bottle.run(host=self.__listen_ip, port=self.__listen_port, server='gevent')
+        #bottle.run(host=self.__listen_ip, port=self.__listen_port, server='gevent')
+        bottle.run(host=self.__listen_ip, port=self.__listen_port)
 
     def webapp(self):
         return bottle.jinja2_template('index.html')
 
     def serve_js(self, filename):
-        if os.path.exists('/people/r3boot/fileindexer/js/%s' % filename):
-            return open('/people/r3boot/fileindexer/js/%s' % filename, 'r').read()
+        if os.path.exists('/home/r3boot/fileindexer/js/%s' % filename):
+            return open('/home/r3boot/fileindexer/js/%s' % filename, 'r').read()
         else:
             bottle.abort(404, 'File not found')
 
     def serve_css(self, filename):
-        if os.path.exists('/people/r3boot/fileindexer/css/%s' % filename):
+        if os.path.exists('/home/r3boot/fileindexer/css/%s' % filename):
             bottle.response.set_header('Content-type', 'text/css')
-            return open('/people/r3boot/fileindexer/css/%s' % filename, 'r').read()
+            return open('/home/r3boot/fileindexer/css/%s' % filename, 'r').read()
         else:
             bottle.abort(404, 'File not found')
 
     def serve_png(self, filename):
-        if os.path.exists('/people/r3boot/fileindexer/img/%s' % filename):
+        if os.path.exists('/home/r3boot/fileindexer/img/%s' % filename):
             bottle.response.set_header('Content-type', 'image/png')
-            return open('/people/r3boot/fileindexer/img/%s' % filename, 'r').read()
+            return open('/home/r3boot/fileindexer/img/%s' % filename, 'r').read()
         else:
             bottle.abort(404, 'File not found')
 
@@ -112,45 +112,6 @@ class FrontendAPI:
             return {'result': True, 'message': 'User removed succesfully'}
         else:
             return {'result': True, 'message': 'Failed to remove user'}
-
-    @must_authenticate()
-    def get_servers(self, *args, **kwargs):
-        servers = self.servers.list()
-        if servers:
-            return {'result': True, 'servers': servers}
-        else:
-            return {'result': False, 'message': 'No servers defined'}
-
-    @must_authenticate()
-    def get_server(self, *args, **kwargs):
-        request = self.__deserialize(bottle.request.body.readline())
-        if 'hostname' in request:
-            server = self.servers.get_by_hostname(request['hostname'])
-        if server:
-            return {'result': True, 'server': server}
-        else:
-            return {'result': False, 'message': 'Failed to retrieve server'}
-
-    @must_authenticate()
-    def add_server(self, *args, **kwargs):
-        request = self.__deserialize(bottle.request.body.readline())
-        if 'hostname' in request:
-            return {'result': True, 'message': self.servers.add(request)}
-        else:
-            return {'result': False, 'message': 'Failed to add server'}
-
-    @must_authenticate()
-    def update_server(self, *args, **kwargs):
-        return {'result': False, 'message': 'FNI'}
-
-    @must_authenticate()
-    def remove_server(self, *args, **kwargs):
-        request = self.__deserialize(bottle.request.body.readline())
-        if 'hostname' in request:
-            self.servers.remove(request['hostname'])
-            return {'result': True, 'message': 'Server removed successfully'}
-        else:
-            return {'result': False, 'message': 'Invalid request'}
 
     def query(self, *args, **kwargs):
         request = self.__deserialize(bottle.request.body.readline())
