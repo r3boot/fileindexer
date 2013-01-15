@@ -57,7 +57,7 @@ def crawler_task(args):
     kwargs = args[1]
 
     logger = get_logger(kwargs['log_level'])
-    in_q = FilesystemQueue('out_q')
+    in_q = FilesystemQueue('in_q')
     out_q = FilesystemQueue('out_q')
 
     empty_counter = 0
@@ -88,7 +88,7 @@ def crawler_task(args):
                 (filename, raw_meta) = line.split('\t')
                 meta = json.loads(raw_meta)
                 meta['filename'] = filename
-                meta['url'] = '%s/%s' % (kwargs['url'], filename)
+                meta['url'] = '%s/%s' % (url, filename)
                 results.append(meta)
 
         if len(results) > 0:
@@ -133,6 +133,9 @@ def main():
         'max_empty_time': max_empty_time
     }
     mp_pool.map_async(crawler_task, [(worker_id, task_args) for worker_id in xrange(num_workers)])
+
+    for url in args.url:
+        in_q.put(url)
 
     in_empty_count = 0
     out_empty_count = 0

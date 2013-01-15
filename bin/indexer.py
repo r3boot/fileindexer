@@ -2,20 +2,19 @@
 
 import argparse
 import hashlib
+import json
 import logging
 import mimetypes
 import multiprocessing
 import os
 import stat
 import sys
-#import tempfile
 import time
 
-sys.path.append('/home/r3boot/fileindexer')
+sys.path.append('/people/r3boot/fileindexer')
 
 from fileindexer.log import get_logger
 from fileindexer.indexer.hachoir_meta_parser import HachoirMetadataParser, hachoir_mapper
-from fileindexer.indexer.index_writer import IndexWriter
 from fileindexer.backends.filesystem_queue import FilesystemQueue
 
 __description__ = 'File Indexer'
@@ -41,26 +40,27 @@ def indexer_task(args):
     kwargs = args[1]
 
     logger = get_logger(kwargs['log_level'])
-    queue = FilesystemQueue(logger, 'fileindexer')
+    in_q = FilesystemQueue('indexer_in_q', '/tmp')
+    out_q = FilesystemQueue('indexer_out_q', '/tmp')
     hmp = HachoirMetadataParser(logger)
-    idxwriter = IndexWriter(logger)
 
     empty_counter = 0
-    stop = False
-    while not stop:
-        if empty_counter > kwargs['max_empty_time']:
-            logger.debug('worker %s) Queue is empty, exiting' % empty_counter)
-            stop = True
+    while empty_counter < kwargs['max_empty_time']:
 
-        if queue.empty():
+        """
+        print("Checking if queue has items")
+        if in_q.empty():
             empty_counter += 1
-            time.sleep(1)
+            time.sleep(0.5)
+            print("in_q is empty")
             continue
         else:
             empty_counter = 0
+        """
 
+        print("Retrieving path from queue")
         path = None
-        path = queue.get()
+        path = in_q.get()
         print('(worker %s) Indexing: %s' % (worker_id, path))
 
         results = None
@@ -93,6 +93,7 @@ def indexer_task(args):
 
             full_path = None
             full_path = os.path.join(path, found)
+            meta['full_path'] = full_path
             st = None
             try:
                 st = os.stat(full_path)
@@ -107,7 +108,7 @@ def indexer_task(args):
 
             meta['is_dir'] = stat.S_ISDIR(st.st_mode)
             if meta['is_dir']:
-                queue.put(full_path)
+                in_q.put(full_path)
 
             meta['checksum'] = hashlib.md5('%s %s' % (found, st.st_size)).hexdigest()
 
@@ -140,7 +141,10 @@ def indexer_task(args):
 
             results['metadata'].append(meta)
 
-        idxwriter.write_indexes(path, results['metadata'])
+        #idxwriter.write_indexes(path, results['metadata'])
+        out_q.put(results['metadata'])
+
+    logger.debug('worker %s) Queue is empty, exiting' % empty_counter)
     logger.debug('worker exiting')
 
 def main():
@@ -179,14 +183,14 @@ def main():
 
     ## Setup multiprocessing
     num_workers = int(args.num_workers)
-    mp_pool = multiprocessing.Pool(processes=num_workers)
-    queue = FilesystemQueue(logger, 'fileindexer')
-    max_empty_time = 3
+    mp_pool = multiprocessing.Pool(processes=num_workers, maxtasksperchild=100)
+    in_q = FilesystemQueue('indexer_in_q', '/tmp')
+    out_q = FilesystemQueue('indexer_out_q', '/tmp')
+    max_empty_time = 10
 
     if not args.resume:
-        queue.clear()
-        for path in args.path:
-            queue.put(path)
+        in_q.clear()
+        in_q.put(args.path[0])
 
     ## Fire up workers
     task_args = {
@@ -201,21 +205,31 @@ def main():
     mp_pool.map_async(indexer_task, [(worker_id, task_args) for worker_id in xrange(num_workers)])
 
     empty_count = 0
-    while True:
-        if empty_count > max_empty_time:
-            logger.debug('Queue empty, exiting')
-            break
-
-        if queue.empty():
+    while empty_count < max_empty_time:
+        if in_q.empty():
             empty_count += 1
+            time.sleep(0.5)
         else:
             empty_count = 0
+        logger.debug('Waiting for queue')
 
-        logger.debug('queue size: %s' % queue.qsize())
-        time.sleep(1)
-
+    logger.debug("Queue is empty")
     mp_pool.close()
     mp_pool.join()
+
+    logger.debug('Writing 00METADATA')
+    all_meta = []
+    while not out_q.empty():
+        metas = None
+        metas = out_q.get()
+        [all_meta.append(meta) for meta in metas]
+
+    all_meta.sort()
+    fd = open('%s/00METADATA' % args.path[0], "w")
+    for meta in all_meta:
+        fd.write('%s||%s' % (meta['full_path'].replace(args.path, ''), json.dumps(meta)))
+    os.fsync(fd)
+    fd.close()
 
 if __name__ == "__main__":
     main()
