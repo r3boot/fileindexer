@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import Queue
 import argparse
 import hashlib
 import json
@@ -15,7 +16,6 @@ sys.path.append('/people/r3boot/fileindexer')
 
 from fileindexer.log import get_logger
 from fileindexer.indexer.hachoir_meta_parser import HachoirMetadataParser, hachoir_mapper
-from fileindexer.backends.filesystem_queue import FilesystemQueue
 
 __description__ = 'File Indexer'
 
@@ -35,32 +35,15 @@ ll2str = {
     50: 'CRITICAL'
 }
 
-def indexer_task(args):
-    worker_id = args[0]
-    kwargs = args[1]
+def indexer_worker(worker_id, work_q, result_q, log_level):
 
-    logger = get_logger(kwargs['log_level'])
-    in_q = FilesystemQueue('indexer_in_q', '/tmp')
-    out_q = FilesystemQueue('indexer_out_q', '/tmp')
+    logger = get_logger(log_level)
     hmp = HachoirMetadataParser(logger)
 
-    empty_counter = 0
-    while empty_counter < kwargs['max_empty_time']:
-
-        """
-        print("Checking if queue has items")
-        if in_q.empty():
-            empty_counter += 1
-            time.sleep(0.5)
-            print("in_q is empty")
-            continue
-        else:
-            empty_counter = 0
-        """
-
-        print("Retrieving path from queue")
+    while True:
         path = None
-        path = in_q.get()
+        path = work_q.get()
+
         print('(worker %s) Indexing: %s' % (worker_id, path))
 
         results = None
@@ -73,8 +56,9 @@ def indexer_task(args):
 
         found = None
         for found in os.listdir(path):
-            if found in kwargs['excluded']:
-                continue
+            # TODO
+            #if found in kwargs['excluded']:
+            #    continue
             try:
                 found = unicode(found)
             except UnicodeDecodeError:
@@ -94,6 +78,11 @@ def indexer_task(args):
             full_path = None
             full_path = os.path.join(path, found)
             meta['full_path'] = full_path
+
+            if os.path.islink(full_path):
+                logger.warn('(worker %s) Skipping symlink %s' % (worker_id, full_path))
+                continue
+
             st = None
             try:
                 st = os.stat(full_path)
@@ -102,26 +91,21 @@ def indexer_task(args):
                 logger.warn(e)
                 continue
 
-            if kwargs['ignore_symlinks'] and stat.S_ISLNK(st.st_mode):
-                logger.warn('(worker %s) Skipping symlink %s' % (worker_id, full_path))
-                continue
-
             meta['is_dir'] = stat.S_ISDIR(st.st_mode)
             if meta['is_dir']:
-                in_q.put(full_path)
+                work_q.put(full_path)
 
-            meta['checksum'] = hashlib.md5('%s %s' % (found, st.st_size)).hexdigest()
+            meta['checksum'] = hashlib.md5('%s %s' % (st.st_ctime, st.st_size)).hexdigest()
 
-            if kwargs['do_stat']:
-                meta['mode'] = st.st_mode
-                meta['uid'] = st.st_uid
-                meta['gid'] = st.st_gid
-                meta['size'] = st.st_size
-                meta['atime'] = st.st_atime
-                meta['mtime'] = st.st_mtime
-                meta['ctime'] = st.st_ctime
+            meta['mode'] = st.st_mode
+            meta['uid'] = st.st_uid
+            meta['gid'] = st.st_gid
+            meta['size'] = st.st_size
+            meta['atime'] = st.st_atime
+            meta['mtime'] = st.st_mtime
+            meta['ctime'] = st.st_ctime
 
-            if not meta['is_dir'] and kwargs['do_hachoir']:
+            if not meta['is_dir']:
                 types = None
                 types = mimetypes.guess_type(full_path)
                 if types[0] != None:
@@ -134,15 +118,16 @@ def indexer_task(args):
                             break
                     if t:
                         hmp_meta = None
-                        hmp_meta = hmp.extract(full_path, kwargs['quality'],  hachoir_mapper[t])
+                        hmp_meta = hmp.extract(full_path, 0.5,  hachoir_mapper[t])
                         if hmp_meta:
+                            k = None
+                            v = None
                             for k,v in hmp_meta.items():
                                 meta[k] = v
 
             results['metadata'].append(meta)
 
-        #idxwriter.write_indexes(path, results['metadata'])
-        out_q.put(results['metadata'])
+        result_q.put(results['metadata'])
 
     logger.debug('worker %s) Queue is empty, exiting' % empty_counter)
     logger.debug('worker exiting')
@@ -183,51 +168,57 @@ def main():
 
     ## Setup multiprocessing
     num_workers = int(args.num_workers)
-    mp_pool = multiprocessing.Pool(processes=num_workers, maxtasksperchild=100)
-    in_q = FilesystemQueue('indexer_in_q', '/tmp')
-    out_q = FilesystemQueue('indexer_out_q', '/tmp')
-    max_empty_time = 10
+    work_q = multiprocessing.Queue()
+    result_q = multiprocessing.Queue()
 
-    if not args.resume:
-        in_q.clear()
-        in_q.put(args.path[0])
+    logger.debug('Spawning workers')
+    procs = []
+    for i in xrange(num_workers):
+        p = multiprocessing.Process(
+            target=indexer_worker,
+            args=(i, work_q, result_q, log_level)
+        )
+        procs.append(p)
+        p.start()
 
-    ## Fire up workers
-    task_args = {
-        'log_level': log_level,
-        'do_stat': args.do_stat,
-        'do_hachoir': args.do_hachoir,
-        'quality': args.quality,
-        'ignore_symlinks': args.ignore_symlinks,
-        'excluded': excluded,
-        'max_empty_time': max_empty_time
-    }
-    mp_pool.map_async(indexer_task, [(worker_id, task_args) for worker_id in xrange(num_workers)])
+    logger.debug('Seeding work queue')
+    work_q.put(args.path[0])
+    time.sleep(0.5)
 
-    empty_count = 0
-    while empty_count < max_empty_time:
-        if in_q.empty():
-            empty_count += 1
-            time.sleep(0.5)
-        else:
-            empty_count = 0
-        logger.debug('Waiting for queue')
-
-    logger.debug("Queue is empty")
-    mp_pool.close()
-    mp_pool.join()
-
-    logger.debug('Writing 00METADATA')
+    logger.debug('Gathering and sorting metadata')
     all_meta = []
-    while not out_q.empty():
-        metas = None
-        metas = out_q.get()
-        [all_meta.append(meta) for meta in metas]
+    empty_count = 0
+    max_empty_count = 100
+    while True:
+        if empty_count > max_empty_count:
+            logger.debug('Queue is empty')
+            break
+
+        result = None
+        try:
+            result = result_q.get_nowait()
+            empty_count = 0
+        except Queue.Empty:
+            empty_count += 1
+            time.sleep(0.1)
+        if result:
+            [all_meta.append(m) for m in result]
 
     all_meta.sort()
+
+    logger.debug('Cleaning up leftover workers')
+    for p in procs:
+        if p.is_alive():
+            p.terminate()
+            p.join()
+
+    logger.debug('Writing metadata')
     fd = open('%s/00METADATA' % args.path[0], "w")
+    fd.write('# fileindexer-0.1\n')
     for meta in all_meta:
-        fd.write('%s||%s' % (meta['full_path'].replace(args.path, ''), json.dumps(meta)))
+        path = meta['full_path'].replace('%s/' % args.path[0], '').encode('utf-8')
+        meta = json.dumps(meta).encode('utf-8')
+        fd.write('%s\t%s\n' % (path, meta))
     os.fsync(fd)
     fd.close()
 

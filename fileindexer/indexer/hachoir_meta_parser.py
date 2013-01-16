@@ -233,6 +233,7 @@ class HachoirMetadataParser:
         #if ext in self.__unparseable:
         #    return False
 
+        real_filename = None
         try:
             filename, real_filename = hachoir_core.cmd_line.unicodeFilename(filename, self.charset), filename
         except TypeError:
@@ -241,9 +242,11 @@ class HachoirMetadataParser:
         # Create parser
         try:
             if decoder:
+                tags = None
                 tags = [ ("id", decoder), None ]
             else:
                 tags = None
+            parser = None
             parser = hachoir_parser.createParser(filename, real_filename=real_filename, tags=tags)
         except hachoir_core.stream.InputStreamError, err:
             self.__l.error('Failed to create parser for %s' % filename)
@@ -254,10 +257,10 @@ class HachoirMetadataParser:
             return False
 
         # Extract metadata
+        results = None
         try:
             results = hachoir_metadata.extractMetadata(parser, quality)
         except hachoir_core.error.HachoirError, err:
-            results = None
             self.__l.error('Failed to extract metadata for %s' % filename)
             self.__l.error(err)
             return False
@@ -266,6 +269,7 @@ class HachoirMetadataParser:
             return False
 
         # Convert metadata to dictionary
+        meta = None
         meta = {}
    
         cur_k = None
@@ -277,8 +281,11 @@ class HachoirMetadataParser:
             if line.startswith('-'):
                 # this is an attribute
                 line = line.replace('- ', '')
+                k = None
+                v = None
                 (k, v) = line.split(': ')[:2]
                 ## TODO: ugly hack
+                key = None
                 try:
                     if cur_k == '':
                         key = self._remapper[k]
@@ -290,4 +297,5 @@ class HachoirMetadataParser:
             else:
                 # this is a category
                 cur_k = self._remapper[line.replace(':', '')]
+        line = None
         return meta
