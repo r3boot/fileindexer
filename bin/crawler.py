@@ -3,15 +3,15 @@
 import argparse
 import json
 import logging
-import multiprocessing
 import requests
 import sys
 import time
 
+import whoosh.fields
+
 sys.path.append('/home/r3boot/fileindexer')
 
-from fileindexer.log import get_logger
-from fileindexer.backends.filesystem_queue import FilesystemQueue
+from fileindexer.backends.whoosh_index import WhooshIndex
 
 __description__ = 'Add description'
 
@@ -26,73 +26,60 @@ ll2str = {
     50: 'CRITICAL'
 }
 
-session = requests.session()
+def whoosh_write(wi, logger, buff, writers=4, limitmb=512):
+    t_start = time.time()
+    writer = wi.idx.writer(writers=writers, limitmb=limitmb)
+    for doc in buff:
+        try:
+            writer.add_document(**doc)
+        except whoosh.fields.UnknownFieldError, e:
+            print(e)
+            print(doc)
+    writer.commit()
+    logger.debug('Wrote %s documents in %.00f seconds' % (len(buff), time.time()-t_start))
 
-def __request(logger, session, url, method):
-    response = {}
+def crawler_task(logger, url):
+    metafile = '%s/00METADATA' % url
+
+    _stringfields = ['url', 'full_path', 'filename', 'checksum', 'framerate', 'bitrate', 'samplerate', 'comment', 'endianness', 'compression', 'channel', 'language', 'title', 'author', 'artist', 'album', 'producer', 'video', 'audio', 'subtitle', 'file']
+
+    session = requests.session()
+
+    wi = WhooshIndex(logger)
+    buff = []
+
     r = None
     try:
-        r = session.get(url)
+        r = session.get(metafile)
     except requests.exceptions.ConnectionError, e:
-        r = False
-        response['result'] = False
-        response['message'] = e
-        logger.error(e)
+        print(e)
+        return
     except ValueError, e:
-        r = False
-        response['result'] = False
-        response['message'] = e
-        logger.error(e)
+        print(e)
+        return
     finally:
         if r and r.status_code == 200:
-            response['result'] = True
-            response['data'] = r.content
-        else:
-            response['result'] = False
-            response['message'] = 'Request failed'
-    return response
-
-def crawler_task(args):
-    worker_id = args[0]
-    kwargs = args[1]
-
-    logger = get_logger(kwargs['log_level'])
-    in_q = FilesystemQueue('in_q')
-    out_q = FilesystemQueue('out_q')
-
-    empty_counter = 0
-    stop = False
-    while not stop:
-        if empty_counter > kwargs['max_empty_time']:
-            logger.debug('worker %s) Queue is empty, exiting' % worker_id)
-            break
-
-        if in_q.empty():
-            empty_counter += 1
-            time.sleep(1)
-            continue
-        else:
-            empty_counter = 0
-
-        url = None
-        url = in_q.get()
-        idx = None
-        idx = '%s/00INDEX' % url
-
-        response = __request(logger, session, url=idx, method='get')
-        results = []
-        if response['result']:
-            for line in response['data'].split('\n'):
-                if not '\t' in line:
+            for raw_meta in r.content.split('\n'):
+                if not '\t' in raw_meta:
                     continue
-                (filename, raw_meta) = line.split('\t')
+                (filename, raw_meta) = raw_meta.split('\t')
                 meta = json.loads(raw_meta)
                 meta['filename'] = filename
-                meta['url'] = '%s/%s' % (url, filename)
-                results.append(meta)
+                try:
+                    meta['url'] = u'%s/%s' % (url, filename)
+                    for field in _stringfields:
+                        if meta.has_key(field):
+                            meta[field] = unicode(meta[field])
+                    buff.append(meta)
+                except UnicodeDecodeError, e:
+                    pass
 
-        if len(results) > 0:
-            out_q.put(results)
+                if len(buff) >= 1000:
+                    whoosh_write(wi, logger, buff)
+                    buff = []
+
+            whoosh_write(wi, logger, buff)
+
 
 def main():
     parser = argparse.ArgumentParser(description=__description__)
@@ -122,43 +109,7 @@ def main():
 
     logger.debug('logging at %s' % ll2str[log_level])
 
-    num_workers = int(args.num_workers)
-    mp_pool = multiprocessing.Pool(processes=num_workers)
-    in_q = FilesystemQueue('in_q')
-    out_q = FilesystemQueue('out_q')
-    max_empty_time = 30
-
-    task_args = {
-        'log_level': log_level,
-        'max_empty_time': max_empty_time
-    }
-    mp_pool.map_async(crawler_task, [(worker_id, task_args) for worker_id in xrange(num_workers)])
-
-    for url in args.url:
-        in_q.put(url)
-
-    in_empty_count = 0
-    out_empty_count = 0
-    while True:
-        if in_empty_count > max_empty_time and out_empty_count > max_empty_time:
-            logger.debug('Queue empty, exiting')
-            break
-
-        if in_q.empty():
-            in_empty_count += 1
-        else:
-            in_empty_count = 0
-
-        if out_q.empty():
-            out_empty_count += 1
-        else:
-            out_empty_count = 0
-
-        results = out_q.get()
-
-        for meta in results:
-            if meta['is_dir']:
-                in_q.put(meta['url'])
+    crawler_task(logger, args.url[0])
 
 if __name__ == '__main__':
     sys.exit(main())

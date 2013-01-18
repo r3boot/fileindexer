@@ -40,6 +40,9 @@ def indexer_worker(worker_id, work_q, result_q, log_level):
     logger = get_logger(log_level)
     hmp = HachoirMetadataParser(logger)
 
+    logger.debug("Spawning worker %s" % worker_id)
+    result_q.put(worker_id)
+
     while True:
         path = None
         path = work_q.get()
@@ -56,6 +59,8 @@ def indexer_worker(worker_id, work_q, result_q, log_level):
 
         found = None
         for found in os.listdir(path):
+            result_q.put(worker_id)
+
             # TODO
             #if found in kwargs['excluded']:
             #    continue
@@ -129,7 +134,6 @@ def indexer_worker(worker_id, work_q, result_q, log_level):
 
         result_q.put(results['metadata'])
 
-    logger.debug('worker %s) Queue is empty, exiting' % empty_counter)
     logger.debug('worker exiting')
 
 def main():
@@ -164,35 +168,54 @@ def main():
     logger.debug('logging at %s' % ll2str[log_level])
     logger.debug('num_workers: %s' % args.num_workers)
 
-    excluded = ['00INDEX']
-
     ## Setup multiprocessing
     num_workers = int(args.num_workers)
     work_q = multiprocessing.Queue()
     result_q = multiprocessing.Queue()
 
     logger.debug('Spawning workers')
-    procs = []
+    procs = {}
     for i in xrange(num_workers):
         p = multiprocessing.Process(
             target=indexer_worker,
             args=(i, work_q, result_q, log_level)
         )
-        procs.append(p)
+        procs[i] = p
         p.start()
 
     logger.debug('Seeding work queue')
     work_q.put(args.path[0])
-    time.sleep(0.5)
+    time.sleep(1.0)
 
     logger.debug('Gathering and sorting metadata')
     all_meta = []
     empty_count = 0
     max_empty_count = 100
+    worker_idle_count = {}
+    max_worker_idle_count = 1000
+    for i in xrange(num_workers):
+        worker_idle_count[i] = 0
+
     while True:
         if empty_count > max_empty_count:
             logger.debug('Queue is empty')
             break
+
+        ## TODO: this needs a proper look at and fixing the
+        ##       reason *why* processes are hanging
+        for i in xrange(num_workers):
+            worker_idle_count[i] += 1
+            if worker_idle_count[i] > max_worker_idle_count:
+                logger.debug('Worker %s is hanging, restarting' % i)
+                procs[i].terminate()
+                procs[i] = None
+                p = multiprocessing.Process(
+                    target=indexer_worker,
+                    args=(i, work_q, result_q, log_level)
+                )
+                procs[i] = p
+                p.start()
+                worker_idle_count[i] = 0
 
         result = None
         try:
@@ -200,14 +223,21 @@ def main():
             empty_count = 0
         except Queue.Empty:
             empty_count += 1
-            time.sleep(0.1)
+            continue
+
+        time.sleep(0.1)
+
         if result:
-            [all_meta.append(m) for m in result]
+            if isinstance(result, int):
+                worker_idle_count[result] = 0
+            else:
+                [all_meta.append(m) for m in result]
 
     all_meta.sort()
 
     logger.debug('Cleaning up leftover workers')
-    for p in procs:
+    for k in procs.keys():
+        p = procs[k]
         if p.is_alive():
             p.terminate()
             p.join()

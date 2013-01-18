@@ -464,12 +464,15 @@ function format_search_results(results) {
 		var rank = results['documents'][i]['rank']
 		var score = results['documents'][i]['score'].toPrecision(3)
 
+		/*
 		mtime_t = mtime.split('-')
 		var year = mtime_t[0]
 		var month = int_to_month[parseInt(mtime_t[1], 10)]
 		var day = mtime_t[2].split('T')[0]
 		var time = mtime_t[2].split('T')[1]
 		var date = month+' '+day+' '+time+' CEST '+year
+		*/
+		var date = '00 00 00:00 CEST 1970'
 
 		var url_t = url.split('/')
 		var proto = url_t[0].replace(':', '')
