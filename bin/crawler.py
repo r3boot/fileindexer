@@ -26,17 +26,32 @@ ll2str = {
     50: 'CRITICAL'
 }
 
-def whoosh_write(wi, logger, buff, writers=4, limitmb=512):
+def whoosh_write(wi, logger, buff, procs=4, limitmb=512):
     t_start = time.time()
-    writer = wi.idx.writer(writers=writers, limitmb=limitmb)
+
+    writer = wi.idx.writer(procs=procs, limitmb=limitmb, multisegment=True)
+
+    ## Use an unbounded cache for the stemming analyzer
+    """
+    print(writer.schema["url"])
+    for field in writer.schema.names():
+        stem_analyzer = writer.schema[field].format.analyzer
+        stem_analyzer = -1
+        stem_analyzer.clear()
+    """
+
     for doc in buff:
+        #print(doc['url'])
         try:
             writer.add_document(**doc)
         except whoosh.fields.UnknownFieldError, e:
             print(e)
-            print(doc)
     writer.commit()
     logger.debug('Wrote %s documents in %.00f seconds' % (len(buff), time.time()-t_start))
+
+def whoosh_commit(wi, procs=4, limitmb=512):
+    writer = wi.idx.writer(procs=procs, limitmb=limitmb, multisegment=True)
+    writer.commit()
 
 def crawler_task(logger, url):
     metafile = '%s/00METADATA' % url
@@ -47,6 +62,7 @@ def crawler_task(logger, url):
 
     wi = WhooshIndex(logger)
     buff = []
+    total_docs = 0
 
     r = None
     try:
@@ -59,27 +75,34 @@ def crawler_task(logger, url):
         return
     finally:
         if r and r.status_code == 200:
-            for raw_meta in r.content.split('\n'):
-                if not '\t' in raw_meta:
-                    continue
-                (filename, raw_meta) = raw_meta.split('\t')
-                meta = json.loads(raw_meta)
-                meta['filename'] = filename
-                try:
-                    meta['url'] = u'%s/%s' % (url, filename)
-                    for field in _stringfields:
-                        if meta.has_key(field):
-                            meta[field] = unicode(meta[field])
-                    buff.append(meta)
-                except UnicodeDecodeError, e:
-                    pass
+            t_start = time.time()
+            with wi.idx.writer(procs=4, limitmb=512, multisegment=True) as writer:
+                for raw_meta in r.content.split('\n'):
+                    if not '\t' in raw_meta:
+                        continue
+                    (filename, raw_meta) = raw_meta.split('\t')
+                    meta = json.loads(raw_meta)
+                    meta['filename'] = filename
+                    try:
+                        meta['url'] = u'%s/%s' % (url, filename)
+                        for field in _stringfields:
+                            if meta.has_key(field):
+                                meta[field] = unicode(meta[field])
+                        writer.add_document(**meta)
+                        total_docs += 1
+                        #buff.append(meta)
+                    except UnicodeDecodeError, e:
+                        pass
 
-                if len(buff) >= 1000:
-                    whoosh_write(wi, logger, buff)
-                    buff = []
+                    """
+                    if len(buff) >= 5000:
+                        whoosh_write(wi, logger, buff)
+                        buff = []
+                    """
 
-            whoosh_write(wi, logger, buff)
+            logger.debug('Wrote %s documents in %.00f seconds' % (total_docs, time.time()-t_start))
 
+            #whoosh_write(wi, logger, buff)
 
 def main():
     parser = argparse.ArgumentParser(description=__description__)

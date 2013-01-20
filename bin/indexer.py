@@ -41,11 +41,15 @@ def indexer_worker(worker_id, work_q, result_q, log_level):
     hmp = HachoirMetadataParser(logger)
 
     logger.debug("Spawning worker %s" % worker_id)
-    result_q.put(worker_id)
 
     while True:
         path = None
         path = work_q.get()
+        result_q.put(worker_id+100)
+
+        if path == '!DIE!':
+            print('worker %s) Received kill-pill, exiting' % worker_id)
+            break
 
         print('(worker %s) Indexing: %s' % (worker_id, path))
 
@@ -59,7 +63,7 @@ def indexer_worker(worker_id, work_q, result_q, log_level):
 
         found = None
         for found in os.listdir(path):
-            result_q.put(worker_id)
+            result_q.put(worker_id+100)
 
             # TODO
             #if found in kwargs['excluded']:
@@ -190,9 +194,9 @@ def main():
     logger.debug('Gathering and sorting metadata')
     all_meta = []
     empty_count = 0
-    max_empty_count = 100
+    max_empty_count = 500
     worker_idle_count = {}
-    max_worker_idle_count = 1000
+    max_worker_idle_count = 250
     for i in xrange(num_workers):
         worker_idle_count[i] = 0
 
@@ -201,6 +205,7 @@ def main():
             logger.debug('Queue is empty')
             break
 
+        """
         ## TODO: this needs a proper look at and fixing the
         ##       reason *why* processes are hanging
         for i in xrange(num_workers):
@@ -216,29 +221,37 @@ def main():
                 procs[i] = p
                 p.start()
                 worker_idle_count[i] = 0
+        """
 
         result = None
         try:
             result = result_q.get_nowait()
             empty_count = 0
         except Queue.Empty:
+            print('Queue is empty (work:%s; results:%s; empty:%s)' % (work_q.qsize(), result_q.qsize(), empty_count))
             empty_count += 1
+            time.sleep(0.1)
             continue
-
-        time.sleep(0.1)
 
         if result:
             if isinstance(result, int):
-                worker_idle_count[result] = 0
+                worker_idle_count[result-100] = 0
             else:
                 [all_meta.append(m) for m in result]
+        else:
+            time.sleep(0.1)
 
     all_meta.sort()
+
+    for i in xrange(num_workers):
+        work_q.put('!DIE!')
+    time.sleep(0.2)
 
     logger.debug('Cleaning up leftover workers')
     for k in procs.keys():
         p = procs[k]
         if p.is_alive():
+            logger.debug('Terminating worker %s' % k)
             p.terminate()
             p.join()
 

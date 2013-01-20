@@ -186,7 +186,7 @@ hachoir_mapper = {
     'video/x-ms-asf-plugin': 'asf',
     'video/x-ms-wm': 'asf',
     'video/x-ms-wmx': 'asf',
-    'video/x-flv': 'flv',
+    #'video/x-flv': 'flv',
     'image/mov': 'mov',
     'video/quicktime': 'mov',
     'video/sgi-movie': 'mov',
