@@ -131,7 +131,6 @@ def indexer_worker(worker_id, work_q, result_q, log_level):
                         if hmp_meta:
                             meta.update(hmp_meta)
 
-            del(meta['full_path'])
             results['metadata'].append(meta)
 
         result_q.put(results['metadata'])
@@ -239,7 +238,11 @@ def main():
         else:
             time.sleep(0.1)
 
-    all_meta.sort()
+    all_paths = {}
+    for meta in all_meta:
+        all_paths[meta['full_path']] = meta
+    all_paths_idx = all_paths.keys()
+    all_paths_idx.sort()
 
     for i in xrange(num_workers):
         work_q.put('!DIE!')
@@ -256,8 +259,9 @@ def main():
     logger.debug('Writing metadata')
     fd = open('%s/00METADATA' % args.path[0], "w")
     fd.write('# fileindexer-0.1\n')
-    for meta in all_meta:
-        path = meta['full_path'].replace('%s/' % args.path[0], '').encode('utf-8')
+    for path in all_paths_idx:
+        meta = all_paths[path]
+        path = path.replace('%s/' % args.path[0], '').encode('utf-8')
         meta = json.dumps(meta).encode('utf-8')
         fd.write('%s\t%s\n' % (path, meta))
     os.fsync(fd)
