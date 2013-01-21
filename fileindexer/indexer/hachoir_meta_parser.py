@@ -5,6 +5,8 @@ import hachoir_core.stream
 import hachoir_metadata
 import hachoir_parser
 
+from fileindexer.indexer.hachoir_meta_enricher import HachoirMetaEnricher
+
 hachoir_mapper = {
     'application/bzip2': 'bzip2',
     'vnd.ms-cab-compressed': 'cab',
@@ -216,10 +218,12 @@ class HachoirMetadataParser:
         'Album': 'album',
         'Producer': 'producer',
         'Common': '',
+        'Video': 'video',
         'Video stream': 'video',
         'Video stream #1': 'video',
         'Video stream #2': 'video',
         'Video stream #3': 'video',
+        'Audio': 'audio',
         'Audio stream': 'audio',
         'Audio stream #1': 'audio',
         'Audio stream #2': 'audio',
@@ -232,8 +236,9 @@ class HachoirMetadataParser:
     def __init__(self, logger):
         self.__l = logger
         self.charset = hachoir_core.i18n.getTerminalCharset()
+        self.hme = HachoirMetaEnricher()
 
-    def extract(self, filename, quality, decoder):
+    def extract(self, sparse_meta, quality, decoder):
         """this code comes from processFile in hachoir-metadata"""
         #fn, ext = os.path.splitext(filename)
         #if ext in self.__unparseable:
@@ -241,9 +246,9 @@ class HachoirMetadataParser:
 
         real_filename = None
         try:
-            filename, real_filename = hachoir_core.cmd_line.unicodeFilename(filename, self.charset), filename
+            filename, real_filename = hachoir_core.cmd_line.unicodeFilename(sparse_meta['full_path'], self.charset), sparse_meta['full_path']
         except TypeError:
-            real_filename = filename
+            real_filename = sparse_meta['full_path']
 
         # Create parser
         try:
@@ -253,13 +258,13 @@ class HachoirMetadataParser:
             else:
                 tags = None
             parser = None
-            parser = hachoir_parser.createParser(filename, real_filename=real_filename, tags=tags)
+            parser = hachoir_parser.createParser(sparse_meta['full_path'], real_filename=real_filename, tags=tags)
         except hachoir_core.stream.InputStreamError, err:
-            self.__l.error('Failed to create parser for %s' % filename)
+            self.__l.error('Failed to create parser for %s' % sparse_meta['full_path'])
             self.__l.error(err)
             return False
         if not parser:
-            self.__l.error('No parser found for %s' % filename)
+            self.__l.error('No parser found for %s' % sparse_meta['full_path'])
             return False
 
         # Extract metadata
@@ -267,16 +272,17 @@ class HachoirMetadataParser:
         try:
             results = hachoir_metadata.extractMetadata(parser, quality)
         except hachoir_core.error.HachoirError, err:
-            self.__l.error('Failed to extract metadata for %s' % filename)
+            self.__l.error('Failed to extract metadata for %s' % sparse_meta['filename'])
             self.__l.error(err)
             return False
         if not results:
-            self.__l.error('No metadata found for %s' % filename)
+            self.__l.error('No metadata found for %s' % sparse_meta['filename'])
             return False
 
         # Convert metadata to dictionary
         meta = None
         meta = {}
+        meta.update(sparse_meta)
    
         cur_k = None
         for line in str(results).split('\n'):
@@ -304,4 +310,4 @@ class HachoirMetadataParser:
                 # this is a category
                 cur_k = self._remapper[line.replace(':', '')]
         line = None
-        return meta
+        return self.hme.enrich(meta)

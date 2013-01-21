@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import argparse
+import datetime
 import json
 import logging
 import requests
@@ -56,7 +57,8 @@ def whoosh_commit(wi, procs=4, limitmb=512):
 def crawler_task(logger, url):
     metafile = '%s/00METADATA' % url
 
-    _stringfields = ['url', 'full_path', 'filename', 'checksum', 'framerate', 'bitrate', 'samplerate', 'comment', 'endianness', 'compression', 'channel', 'language', 'title', 'author', 'artist', 'album', 'producer', 'video', 'audio', 'subtitle', 'file']
+    _stringfields = ['url', 'filename', 'checksum', 'framerate', 'bitrate', 'samplerate', 'comment', 'endianness', 'compression', 'channel', 'language', 'title', 'author', 'artist', 'album', 'producer', 'video', 'audio', 'subtitle', 'file']
+    _datefields = ['atime', 'ctime', 'mtime']
 
     session = requests.session()
 
@@ -88,6 +90,8 @@ def crawler_task(logger, url):
                         for field in _stringfields:
                             if meta.has_key(field):
                                 meta[field] = unicode(meta[field])
+                        for field in _datefields:
+                            meta[field] = datetime.datetime.fromtimestamp(meta[field])
                         writer.add_document(**meta)
                         total_docs += 1
                         #buff.append(meta)

@@ -127,13 +127,11 @@ def indexer_worker(worker_id, work_q, result_q, log_level):
                             break
                     if t:
                         hmp_meta = None
-                        hmp_meta = hmp.extract(full_path, 0.5,  hachoir_mapper[t])
+                        hmp_meta = hmp.extract(meta, 0.5,  hachoir_mapper[t])
                         if hmp_meta:
-                            k = None
-                            v = None
-                            for k,v in hmp_meta.items():
-                                meta[k] = v
+                            meta.update(hmp_meta)
 
+            del(meta['full_path'])
             results['metadata'].append(meta)
 
         result_q.put(results['metadata'])
