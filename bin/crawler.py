@@ -8,6 +8,8 @@ import requests
 import sys
 import time
 
+import pyes
+
 import whoosh.fields
 
 sys.path.append('/home/r3boot/fileindexer')
@@ -54,16 +56,25 @@ def whoosh_commit(wi, procs=4, limitmb=512):
     writer = wi.idx.writer(procs=procs, limitmb=limitmb, multisegment=True)
     writer.commit()
 
+def es_write(conn, doc):
+    conn.index(doc, 'fileindexer', 'none')
+
 def crawler_task(logger, url):
     metafile = '%s/00METADATA' % url
 
     _stringfields = ['url', 'filename', 'checksum', 'framerate', 'bitrate', 'samplerate', 'comment', 'endianness', 'compression', 'channel', 'language', 'title', 'author', 'artist', 'album', 'producer', 'video', 'audio', 'subtitle', 'file']
     _datefields = ['atime', 'ctime', 'mtime']
+    _floatfields = ['size', 'uid', 'gid', 'mode', 'audio_bitrate', 'channels', 'compression_rate', 'duration', 'framerate', 'width', 'height', 'samplerate', 'video_bitrate']
 
     session = requests.session()
 
     wi = WhooshIndex(logger)
-    buff = []
+    conn = pyes.ES('127.0.0.1:9200')
+    try:
+        conn.indices.create_index("fileindexer")
+    except pyes.exceptions.IndexAlreadyExistsException, e:
+        print('Warning: Index %s' % e)
+
     total_docs = 0
 
     r = None
@@ -78,6 +89,7 @@ def crawler_task(logger, url):
     finally:
         if r and r.status_code == 200:
             t_start = time.time()
+            """
             with wi.idx.writer(procs=4, limitmb=512, multisegment=True) as writer:
                 for raw_meta in r.content.split('\n'):
                     if not '\t' in raw_meta:
@@ -92,21 +104,47 @@ def crawler_task(logger, url):
                                 meta[field] = unicode(meta[field])
                         for field in _datefields:
                             meta[field] = datetime.datetime.fromtimestamp(meta[field])
+                        for field in _floatfields:
+                            if not field in meta.keys():
+                                continue
+                            if not isinstance(meta[field], float):
+                                #print("field: %s" % meta[field])
+                                meta[field] = float(meta[field])
+                        if 'full_path' in meta:
+                            del(meta['full_path'])
                         writer.add_document(**meta)
                         total_docs += 1
-                        #buff.append(meta)
                     except UnicodeDecodeError, e:
                         pass
-
-                    """
-                    if len(buff) >= 5000:
-                        whoosh_write(wi, logger, buff)
-                        buff = []
-                    """
+                """
+            for raw_meta in r.content.split('\n'):
+                if not '\t' in raw_meta:
+                    continue
+                (filename, raw_meta) = raw_meta.split('\t')
+                meta = json.loads(raw_meta)
+                meta['filename'] = filename
+                try:
+                    meta['url'] = u'%s/%s' % (url, filename)
+                    for field in _stringfields:
+                        if meta.has_key(field):
+                            meta[field] = unicode(meta[field])
+                    for field in _datefields:
+                        meta[field] = datetime.datetime.fromtimestamp(meta[field])
+                    for field in _floatfields:
+                        if not field in meta.keys():
+                            continue
+                        if not isinstance(meta[field], float):
+                            #print("field: %s" % meta[field])
+                            meta[field] = float(meta[field])
+                    if 'full_path' in meta:
+                        del(meta['full_path'])
+                    es_write(conn, meta)
+                    #writer.add_document(**meta)
+                    total_docs += 1
+                except UnicodeDecodeError, e:
+                    pass
 
             logger.debug('Wrote %s documents in %.00f seconds' % (total_docs, time.time()-t_start))
-
-            #whoosh_write(wi, logger, buff)
 
 def main():
     parser = argparse.ArgumentParser(description=__description__)

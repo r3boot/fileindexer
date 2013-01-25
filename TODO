@@ -5,7 +5,7 @@
 - Call rate limiting per source
 
 == Indexer ==
-* file checksumming
+* more metadata parsers
 
 == Web interface ==
 * Keep playing with interface styles until I find something cool
@@ -13,7 +13,15 @@
 * Consistency!
 * More and proper api -> user messaging
 * More error handling
+* http://vitalets.github.com/x-editable/demo.html?c=popup
 
 == Architecture ==
 * Rework crawler to indexer multiprocessing model
-* Fix redis queue locking issues
+* Switch over to elasticsearch
+
+== Search ==
+* Install & configure elasticsearch
+  - https://github.com/spinscale/elasticsearch-suggest-plugin
+  - http://mobz.github.com/elasticsearch-head/
+  - https://github.com/karmi/elasticsearch-paramedic
+  - https://github.com/aparo/pyes

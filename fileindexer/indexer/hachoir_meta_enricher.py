@@ -183,8 +183,8 @@ class HachoirMetaEnricher:
             if meta.has_key('compression'):
                 meta['compressor'] = v
 
-        if meta != {}:
-            meta['keyword'] = k
+        #if meta != {}:
+        #    meta['keyword'] = k
 
         return meta
 
@@ -231,7 +231,7 @@ class HachoirMetaEnricher:
         if v in ['Little endian']:
             meta['endianness'] = 'little'
         elif v in ['Big endian']:
-            meta[' endianness'] = 'big'
+            meta['endianness'] = 'big'
         return meta
 
     def parse_samplerate(self, v):
