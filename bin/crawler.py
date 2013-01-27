@@ -8,13 +8,9 @@ import requests
 import sys
 import time
 
-import pyes
-
-import whoosh.fields
-
 sys.path.append('/home/r3boot/fileindexer')
 
-from fileindexer.backends.whoosh_index import WhooshIndex
+from fileindexer.backends.elasticsearch_index import ElasticSearchIndex
 
 __description__ = 'Add description'
 
@@ -29,36 +25,6 @@ ll2str = {
     50: 'CRITICAL'
 }
 
-def whoosh_write(wi, logger, buff, procs=4, limitmb=512):
-    t_start = time.time()
-
-    writer = wi.idx.writer(procs=procs, limitmb=limitmb, multisegment=True)
-
-    ## Use an unbounded cache for the stemming analyzer
-    """
-    print(writer.schema["url"])
-    for field in writer.schema.names():
-        stem_analyzer = writer.schema[field].format.analyzer
-        stem_analyzer = -1
-        stem_analyzer.clear()
-    """
-
-    for doc in buff:
-        #print(doc['url'])
-        try:
-            writer.add_document(**doc)
-        except whoosh.fields.UnknownFieldError, e:
-            print(e)
-    writer.commit()
-    logger.debug('Wrote %s documents in %.00f seconds' % (len(buff), time.time()-t_start))
-
-def whoosh_commit(wi, procs=4, limitmb=512):
-    writer = wi.idx.writer(procs=procs, limitmb=limitmb, multisegment=True)
-    writer.commit()
-
-def es_write(conn, doc):
-    conn.index(doc, 'fileindexer', 'none')
-
 def crawler_task(logger, url):
     metafile = '%s/00METADATA' % url
 
@@ -68,12 +34,7 @@ def crawler_task(logger, url):
 
     session = requests.session()
 
-    wi = WhooshIndex(logger)
-    conn = pyes.ES('127.0.0.1:9200')
-    try:
-        conn.indices.create_index("fileindexer")
-    except pyes.exceptions.IndexAlreadyExistsException, e:
-        print('Warning: Index %s' % e)
+    esi = ElasticSearchIndex()
 
     total_docs = 0
 
@@ -86,65 +47,36 @@ def crawler_task(logger, url):
     except ValueError, e:
         print(e)
         return
-    finally:
-        if r and r.status_code == 200:
-            t_start = time.time()
-            """
-            with wi.idx.writer(procs=4, limitmb=512, multisegment=True) as writer:
-                for raw_meta in r.content.split('\n'):
-                    if not '\t' in raw_meta:
+
+    if r and r.status_code == 200:
+        t_start = time.time()
+        for raw_meta in r.content.split('\n'):
+            if not '\t' in raw_meta:
+                continue
+            (filename, raw_meta) = raw_meta.split('\t')
+            meta = json.loads(raw_meta)
+            meta['filename'] = filename
+            try:
+                meta['url'] = u'%s/%s' % (url, filename)
+                for field in _stringfields:
+                    if meta.has_key(field):
+                        meta[field] = unicode(meta[field])
+                for field in _datefields:
+                    meta[field] = datetime.datetime.fromtimestamp(meta[field])
+                for field in _floatfields:
+                    if not field in meta.keys():
                         continue
-                    (filename, raw_meta) = raw_meta.split('\t')
-                    meta = json.loads(raw_meta)
-                    meta['filename'] = filename
-                    try:
-                        meta['url'] = u'%s/%s' % (url, filename)
-                        for field in _stringfields:
-                            if meta.has_key(field):
-                                meta[field] = unicode(meta[field])
-                        for field in _datefields:
-                            meta[field] = datetime.datetime.fromtimestamp(meta[field])
-                        for field in _floatfields:
-                            if not field in meta.keys():
-                                continue
-                            if not isinstance(meta[field], float):
-                                #print("field: %s" % meta[field])
-                                meta[field] = float(meta[field])
-                        if 'full_path' in meta:
-                            del(meta['full_path'])
-                        writer.add_document(**meta)
-                        total_docs += 1
-                    except UnicodeDecodeError, e:
-                        pass
-                """
-            for raw_meta in r.content.split('\n'):
-                if not '\t' in raw_meta:
-                    continue
-                (filename, raw_meta) = raw_meta.split('\t')
-                meta = json.loads(raw_meta)
-                meta['filename'] = filename
-                try:
-                    meta['url'] = u'%s/%s' % (url, filename)
-                    for field in _stringfields:
-                        if meta.has_key(field):
-                            meta[field] = unicode(meta[field])
-                    for field in _datefields:
-                        meta[field] = datetime.datetime.fromtimestamp(meta[field])
-                    for field in _floatfields:
-                        if not field in meta.keys():
-                            continue
-                        if not isinstance(meta[field], float):
-                            #print("field: %s" % meta[field])
-                            meta[field] = float(meta[field])
-                    if 'full_path' in meta:
-                        del(meta['full_path'])
-                    es_write(conn, meta)
-                    #writer.add_document(**meta)
-                    total_docs += 1
-                except UnicodeDecodeError, e:
+                    if not isinstance(meta[field], float):
+                        #print("field: %s" % meta[field])
+                        meta[field] = float(meta[field])
+                if 'full_path' in meta:
+                    del(meta['full_path'])
+                esi.index(meta)
+                total_docs += 1
+            except UnicodeDecodeError, e:
                     pass
 
-            logger.debug('Wrote %s documents in %.00f seconds' % (total_docs, time.time()-t_start))
+    logger.debug('Wrote %s documents in %.00f seconds' % (total_docs, time.time()-t_start))
 
 def main():
     parser = argparse.ArgumentParser(description=__description__)
