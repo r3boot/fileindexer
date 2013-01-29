@@ -36,8 +36,6 @@ def crawler_task(logger, url):
 
     esi = ElasticSearchIndex()
 
-    total_docs = 0
-
     r = None
     try:
         r = session.get(metafile)
@@ -50,6 +48,7 @@ def crawler_task(logger, url):
 
     if r and r.status_code == 200:
         t_start = time.time()
+        total_docs = 0
         for raw_meta in r.content.split('\n'):
             if not '\t' in raw_meta:
                 continue

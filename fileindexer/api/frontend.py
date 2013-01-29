@@ -5,7 +5,7 @@ import os
 
 from fileindexer.decorators import must_authenticate, must_be_admin
 from fileindexer.backends.sqlite3_config import Users
-from fileindexer.backends.whoosh_index import WhooshIndex
+from fileindexer.backends.elasticsearch_index import ElasticSearchIndex
 
 class FrontendAPI:
     __valid_config_items = ['paths']
@@ -17,7 +17,7 @@ class FrontendAPI:
         self.__listen_ip = listen_ip
         self.__listen_port = listen_port
         self.users = Users(logger)
-        self.idx = WhooshIndex(logger)
+        self.idx = ElasticSearchIndex()
 
     def __deserialize(self, data):
         try:
@@ -129,6 +129,7 @@ class FrontendAPI:
             r = self.idx.query(request['query'], page=page, pagelen=pagelen)
             documents = []
             for doc in r['documents']:
+                print(doc)
                 for k,v in doc.items():
                     if isinstance(v, datetime.datetime):
                         doc[k] = v.isoformat()
