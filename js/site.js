@@ -429,6 +429,30 @@ function view_search() {
 
 }
 
+function show_pagination(pagenum, pagecount, query) {
+	var range_start = 0
+	var range_end = 0
+
+	if (pagenum < 5) {
+		range_start = 0
+		range_end = 10
+	} else if ((pagecount - pagenum) < 5) {
+		range_start = pagecount - 10
+		range_end = pagecount
+	} else {
+		range_start = pagenum - 5
+		range_end = pagenum + 5
+	}
+
+	var content = '<div class=\"pagination pagination-right\"><ul>'
+	for (var i=range_start; i<range_end; i++) {
+		page_id = i+1
+			content += '<li><a href=\"#\" onclick=\"view_search_results(\''+query+'\', '+page_id+')\">'+page_id+'</a></li>'
+	}
+	content += '</ul></div>'
+	return content
+}
+
 function format_search_meta(results) {
 	var query = results['query']
 	var pagenum = results['pagenum']
@@ -442,12 +466,7 @@ function format_search_meta(results) {
 	content += '<h3>Page '+pagenum+' of '+pagecount+'</h3>'
 	content += '</div>'
 	content += '<div class=\"span10\">'
-	content += '<div class=\"pagination pagination-right\"><ul>'
-	for (var i=0; i<pagecount; i++) {
-		page_id = i+1
-		content += '<li><a href=\"#\" onclick=\"view_search_results(\''+query+'\', '+page_id+')\">'+page_id+'</a></li>'
-	}
-	content += '</ul></div>'
+	content += show_pagination(pagenum, pagecount, query, result_total)
 	content += '</div>'
 	content += '</div>'
 	return content

@@ -23,9 +23,28 @@ class ElasticSearchIndex:
         self.__conn.index(meta, self.__ES_index_name, 'none')
 
     def query(self, query, page=0, pagelen=10):
-        results = {}
+        results = {
+            'documents': [],
+            'hits': 0
+        }
         q = pyes.StringQuery(query)
-        resultset = self.__conn.search(query=q, indices=self.__ES_index_name, start=page, size=pagelen)
-        results['documents'] = resultset
+        r = self.__conn.search(query=q, indices=self.__ES_index_name, start=page, size=pagelen)
+        for raw_doc in r:
+            doc = dict(raw_doc)
+            doc['score'] = 0                ## TODO
+            doc['rank'] = raw_doc.position
+            results['documents'].append(doc)
+            results['hits'] += 1
+
+        results['pagenum'] = page
+        results['pagecount'] = r.total / pagelen
+        if page == 0:
+            results['result_start'] = page
+        elif page == 1:
+            results['result_start'] = pagelen
+        else:
+            results['result_start'] = pagelen * ( page - 1 )
+        results['result_end'] = results['result_start'] + pagelen
+        results['result_total'] = r.total
 
         return results

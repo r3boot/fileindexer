@@ -129,7 +129,6 @@ class FrontendAPI:
             r = self.idx.query(request['query'], page=page, pagelen=pagelen)
             documents = []
             for doc in r['documents']:
-                print(doc)
                 for k,v in doc.items():
                     if isinstance(v, datetime.datetime):
                         doc[k] = v.isoformat()
