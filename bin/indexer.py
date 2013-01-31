@@ -16,6 +16,7 @@ sys.path.append('/people/r3boot/fileindexer')
 
 from fileindexer.log import get_logger
 from fileindexer.indexer.hachoir_meta_parser import HachoirMetadataParser, hachoir_mapper
+from fileindexer.indexer.mutagen_meta_parser import MutagenMetadataParser, mutagen_mimes
 
 __description__ = 'File Indexer'
 
@@ -39,6 +40,7 @@ def indexer_worker(worker_id, work_q, result_q, log_level):
 
     logger = get_logger(log_level)
     hmp = HachoirMetadataParser(logger)
+    mmp = MutagenMetadataParser()
 
     logger.debug("Spawning worker %s" % worker_id)
 
@@ -117,19 +119,30 @@ def indexer_worker(worker_id, work_q, result_q, log_level):
             if not meta['is_dir']:
                 types = None
                 types = mimetypes.guess_type(full_path)
+                scan_with_hachoir = False
+                scan_with_mutagen = False
+
                 if types[0] != None:
                     meta['mime'] = types[0]
                 if types and types[0] != None:
-                    t = None
                     for mimetype in types:
                         if mimetype in hachoir_mapper:
-                            t = mimetype
+                            scan_with_hachoir = True
                             break
-                    if t:
+                        elif mimetype in mutagen_mimes:
+                            scan_with_mutagen = True
+
+                    if scan_with_hachoir:
                         hmp_meta = None
-                        hmp_meta = hmp.extract(meta, 0.5,  hachoir_mapper[t])
+                        hmp_meta = hmp.extract(meta, 0.5,  hachoir_mapper[mimetype])
                         if hmp_meta:
                             meta.update(hmp_meta)
+
+                    elif scan_with_mutagen:
+                        mmp_meta = None
+                        mmp_meta = mmp.extract(meta)
+                        if mmp_meta:
+                            meta.update(mmp_meta)
 
             results['metadata'].append(meta)
 
