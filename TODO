@@ -1,3 +1,6 @@
+== Architecture ==
+* Migrate away from hachoir
+
 == API ==
 * resource monitoring / limiting
 - Block after N failed auth attempts per source using an exponential backoff algorithm
@@ -5,7 +8,15 @@
 - Call rate limiting per source
 
 == Indexer ==
-* more metadata parsers
+* Create exif parser
+* Create video parser
+* Create document parser
+* Create archive parser
+* Find more interesting things to index
+
+== Crawler ==
+* Setup some kind of scheduling system
+* Couple with webinterface and allow users to add urls
 
 == Web interface ==
 * Keep playing with interface styles until I find something cool
@@ -15,13 +26,9 @@
 * More error handling
 * http://vitalets.github.com/x-editable/demo.html?c=popup
 
-== Architecture ==
-* Rework crawler to indexer multiprocessing model
-* Switch over to elasticsearch
-
-== Search ==
-* Install & configure elasticsearch
+== ElasticSearch ==
+* Play around with all possible cluster setups
+* Checkout ES 3rd party stuff
   - https://github.com/spinscale/elasticsearch-suggest-plugin
   - http://mobz.github.com/elasticsearch-head/
   - https://github.com/karmi/elasticsearch-paramedic
-  - https://github.com/aparo/pyes
