@@ -70,6 +70,7 @@ def crawler_task(logger, url):
                         meta[field] = float(meta[field])
                 if 'full_path' in meta:
                     del(meta['full_path'])
+                print(meta)
                 esi.index(meta)
                 total_docs += 1
             except UnicodeDecodeError, e:

@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import ast
 import datetime
 import os
 import re
@@ -23,6 +24,8 @@ import mutagen.oggvorbis
 import mutagen.optimfrog
 import mutagen.trueaudio
 import mutagen.wavpack
+
+from fileindexer.indexer.safe_unicode import safe_unicode
 
 mutagen_mimes = [
     'audio/asf',
@@ -110,7 +113,7 @@ class MutagenMetadataParser:
         'track.total'
     ]
 
-    _ignored_tags_start = ['APIC', 'USLT', 'TXXX', 'WXXX', 'PRIV', 'UFID', 'MCDI', 'GEOB', 'PCNT', 'POPM', 'TFLT', 'TIT3', 'TKEY', 'TOLY', 'TOWN', 'TRSN',' TSOA', 'TSOT', 'WCOM', 'unknown0', 'WOAF', 'WOAR', 'WOAS', 'WPUB', 'asin', 'buycdurl', 'cdtoc', 'TDTG', 'h2_', 'musicbrainz_nonalbum', 'performer', 'related', 'rip', 'rip date', 'retail date', 'script', 'setnumber', 'settotal', 'url', 'venue', 'www', 'musicbrainz_albumartist', 'musicbrainz_albumartistsortname', 'musicbrainz_albumstatus', 'musicbrainz_albumtype', 'musicbrainz_nonalbum', 'musicbrainz_sortname', 'musicbrainz_variousartists', 'musicbrainz_discid', 'accurateriptotal', 'accurateripresult', 'accurateripoffset', 'accurateripdiscid', 'accurateripcountwithoffset', 'accurateripcountalloffsets', 'accurateripcount', 'encodedby', 'replaygain_album_gain', 'replaygain_album_peak', 'replaygain_reference_loudness', 'replaygain_track_gain', 'replaygain_track_peak', 'discogs_artist_id', 'discogs_artist_link', 'discogs_label_link', 'discogs_original_track_number', 'discogs_release_month', 'discogs_released', 'related', 'titlesort', 'rip', 'rip date', 'discid', 'musicip_puid', 'discogs_release_id', 'codinghistory', 'encoding', 'transcoded', 'TOFN', 'orig_filename', 'producer', 'engineer', 'remixed by', 'track_modified_by', 'remixer', 'info', 'version', 'encodedon', 'TDON', 'releaser2', 'logfile', 'itunes_cddb_1', 'dd mm yyyy', 'pwn', 'TCMP', 'USLT', 'TXXX:Album Artist', 'TDRC', 'recording_time', 'albumartistsort', 'artistsort', 'rating', 'limited edition', 'albumsort', 'origtime', 'TPE4', 'TDEN', 'original logfile', 'LINK', 'mediafoundationversion', 'wm/provider', 'TSOA', 'WORS']
+    _ignored_tags_start = ['APIC', 'USLT', 'TXXX', 'WXXX', 'PRIV', 'UFID', 'MCDI', 'GEOB', 'PCNT', 'POPM', 'TFLT', 'TIT3', 'TKEY', 'TOLY', 'TOWN', 'TRSN',' TSOA', 'TSOT', 'WCOM', 'unknown0', 'WOAF', 'WOAR', 'WOAS', 'WPUB', 'asin', 'buycdurl', 'cdtoc', 'TDTG', 'h2_', 'musicbrainz_nonalbum', 'performer', 'related', 'rip', 'rip date', 'retail date', 'script', 'setnumber', 'settotal', 'url', 'venue', 'www', 'musicbrainz_albumartist', 'musicbrainz_albumartistsortname', 'musicbrainz_albumstatus', 'musicbrainz_albumtype', 'musicbrainz_nonalbum', 'musicbrainz_sortname', 'musicbrainz_variousartists', 'musicbrainz_discid', 'accurateriptotal', 'accurateripresult', 'accurateripoffset', 'accurateripdiscid', 'accurateripcountwithoffset', 'accurateripcountalloffsets', 'accurateripcount', 'encodedby', 'replaygain_album_gain', 'replaygain_album_peak', 'replaygain_reference_loudness', 'replaygain_track_gain', 'replaygain_track_peak', 'discogs_artist_id', 'discogs_artist_link', 'discogs_label_link', 'discogs_original_track_number', 'discogs_release_month', 'discogs_released', 'related', 'titlesort', 'rip', 'rip date', 'discid', 'musicip_puid', 'discogs_release_id', 'codinghistory', 'encoding', 'transcoded', 'TOFN', 'orig_filename', 'producer', 'engineer', 'remixed by', 'track_modified_by', 'remixer', 'info', 'version', 'encodedon', 'TDON', 'releaser2', 'logfile', 'itunes_cddb_1', 'dd mm yyyy', 'pwn', 'TCMP', 'USLT', 'TXXX:Album Artist', 'TDRC', 'recording_time', 'albumartistsort', 'artistsort', 'rating', 'limited edition', 'albumsort', 'origtime', 'TPE4', 'TDEN', 'original logfile', 'LINK', 'mediafoundationversion', 'wm/provider', 'TSOA', 'WORS', 'tool version', 'disc name', 'tool name']
 
     _remapped_tags = {
         'accurateripcrc':                   'accuraterip.crc',
@@ -361,7 +364,6 @@ class MutagenMetadataParser:
             return {}
 
     def valid_tag(self, tag):
-        valid_tag = False
         for k in self._valid_tags:
             if k == tag:
                 return True
@@ -392,12 +394,18 @@ class MutagenMetadataParser:
     def parse_datetime_field(self, value):
         if not isinstance(value, str):
             value = str(value)
+        time_struct = None
         match = self._re_datetime_1.search(value)
         if match:
-            return time.strptime(value, '%Y-%M-%d')
+            time_struct = time.strptime(value, '%Y-%M-%d')
         match = self._re_datetime_2.search(value)
         if match:
-            return time.strptime(value, '%Y')
+            time_struct = time.strptime(value, '%Y')
+        
+        if time_struct:
+            return datetime.datetime.fromtimestamp(time.mktime(time_struct)).isoformat()
+        else:
+            return value
 
     def extract(self, meta):
         raw_meta = self.amp.extract(meta['full_path'])
@@ -439,7 +447,27 @@ class MutagenMetadataParser:
 
             if not self.valid_tag(tag):
                 print('UNKNOWN TAG: %s' % k)
-                sys.exit(1)
+                return {}
+
+            value = safe_unicode(value)
+            if not value:
+                print('CANNOT CONVERT TO UNICODE: %s' % value)
+                return {}
+
+            if not isinstance(value, unicode):
+                try:
+                    value = unicode(value, 'utf8')
+                except TypeError, e:
+                    if str(e) != 'decoding Unicode is not supported':
+                        print(e)
+                        continue
+                except UnicodeDecodeError:
+                    print('Cannot encode %s to unicode' % value)
+
+            for q in ['\x00']:
+                if value.endswith(q):
+                    value = value.replace(q, '')
+
 
             if tag in self._string_fields:
                 meta[tag] = self.parse_string_field(value)

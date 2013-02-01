@@ -15,6 +15,7 @@ import time
 sys.path.append('/people/r3boot/fileindexer')
 
 from fileindexer.log import get_logger
+from fileindexer.indexer.safe_unicode import safe_unicode
 from fileindexer.indexer.hachoir_meta_parser import HachoirMetadataParser, hachoir_mapper
 from fileindexer.indexer.mutagen_meta_parser import MutagenMetadataParser, mutagen_mimes
 
@@ -70,16 +71,13 @@ def indexer_worker(worker_id, work_q, result_q, log_level):
             # TODO
             #if found in kwargs['excluded']:
             #    continue
-            try:
-                found = unicode(found)
-            except UnicodeDecodeError:
-                logger.warn('(worker %s) Cannot encode %s to unicode' % (worker_id, found))
+
+            found = safe_unicode(found)
+            if not found:
                 continue
 
-            try:
-                path = unicode(path)
-            except UnicodeDecodeError:
-                logger.warn('(worker %s) Cannot encode %s to unicode' % (worker_id, found))
+            path = safe_unicode(path)
+            if not path:
                 continue
 
             meta = None
@@ -145,7 +143,7 @@ def indexer_worker(worker_id, work_q, result_q, log_level):
                             meta.update(mmp_meta)
 
             results['metadata'].append(meta)
-
+        
         result_q.put(results['metadata'])
 
     logger.debug('worker exiting')
@@ -204,48 +202,27 @@ def main():
     logger.debug('Gathering and sorting metadata')
     all_meta = []
     empty_count = 0
-    max_empty_count = 500
-    worker_idle_count = {}
-    max_worker_idle_count = 250
-    for i in xrange(num_workers):
-        worker_idle_count[i] = 0
+    max_empty_count = 25
 
     while True:
         if empty_count > max_empty_count:
             logger.debug('Queue is empty')
             break
 
-        """
-        ## TODO: this needs a proper look at and fixing the
-        ##       reason *why* processes are hanging
-        for i in xrange(num_workers):
-            worker_idle_count[i] += 1
-            if worker_idle_count[i] > max_worker_idle_count:
-                logger.debug('Worker %s is hanging, restarting' % i)
-                procs[i].terminate()
-                procs[i] = None
-                p = multiprocessing.Process(
-                    target=indexer_worker,
-                    args=(i, work_q, result_q, log_level)
-                )
-                procs[i] = p
-                p.start()
-                worker_idle_count[i] = 0
-        """
-
         result = None
         try:
             result = result_q.get_nowait()
             empty_count = 0
         except Queue.Empty:
-            print('Queue is empty (work:%s; results:%s; empty:%s)' % (work_q.qsize(), result_q.qsize(), empty_count))
+            print('Queue is empty (work:%s)' % work_q.qsize())
             empty_count += 1
             time.sleep(0.1)
             continue
 
         if result:
             if isinstance(result, int):
-                worker_idle_count[result-100] = 0
+                ## Received keepalive
+                pass
             else:
                 [all_meta.append(m) for m in result]
         else:
@@ -272,11 +249,18 @@ def main():
     logger.debug('Writing metadata')
     fd = open('%s/00METADATA' % args.path[0], "w")
     fd.write('# fileindexer-0.1\n')
+    prefix_length = len(args.path[0])
     for path in all_paths_idx:
+        path = safe_unicode(path)
+        if not path:
+            continue
         meta = all_paths[path]
-        path = path.replace('%s/' % args.path[0], '').encode('utf-8')
-        meta = json.dumps(meta).encode('utf-8')
-        fd.write('%s\t%s\n' % (path, meta))
+        path = path[prefix_length:]
+        meta = json.dumps(meta)
+        fd.write(path.encode('UTF-8'))
+        fd.write('\t')
+        fd.write(meta)
+        fd.write('\n')
     os.fsync(fd)
     fd.close()
 

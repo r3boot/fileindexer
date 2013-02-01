@@ -466,7 +466,7 @@ function format_search_meta(results) {
 	content += '<h3>Page '+pagenum+' of '+pagecount+'</h3>'
 	content += '</div>'
 	content += '<div class=\"span10\">'
-	content += show_pagination(pagenum, pagecount, query, result_total)
+	content += show_pagination(pagenum, pagecount, query)
 	content += '</div>'
 	content += '</div>'
 	return content
@@ -498,12 +498,15 @@ function format_search_results(results) {
 		var server = url_t[2]
 		var safe_url = proto+'://'+server
 		var raw_path = url.replace(safe_url, '')
+		console.log(url)
+		console.log(raw_path)
+		console.log(safe_url)
 		safe_url += escape(raw_path)
 
 		content += '<div class=\"accordion-group medium_bg\">'
 		content += '<div class=\"accordion-heading\">'
 		content += '<a class=\"accordion-toggle dark_fg\" data-toggle=\"collapse\" data-parent=\"#accordion2\" href=\"#c'+rank+'\">'
-		content += '<span onclick=\"window.location.href=\''+safe_url+'\'; event.stopPropagation()\">'+url+'</span>'
+		content += '<span onclick=\"window.location.href=\''+url+'\'; event.stopPropagation()\">'+url+'</span>'
 		content += '</a>'
 		content += '</div>'
 		content += '<div id=\"c'+rank+'\" class=\"accordion-body collapse\">'
