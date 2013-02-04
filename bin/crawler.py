@@ -49,6 +49,7 @@ def crawler_task(logger, url):
     if r and r.status_code == 200:
         t_start = time.time()
         total_docs = 0
+        doc_incr = 0
         for raw_meta in r.content.split('\n'):
             if not '\t' in raw_meta:
                 continue
@@ -67,12 +68,22 @@ def crawler_task(logger, url):
                         continue
                     if not isinstance(meta[field], float):
                         #print("field: %s" % meta[field])
-                        meta[field] = float(meta[field])
+                        try:
+                            meta[field] = float(meta[field])
+                        except TypeError, e:
+                            print(e)
+                            print(meta[field])
+                            continue
                 if 'full_path' in meta:
                     del(meta['full_path'])
-                print(meta)
                 esi.index(meta)
                 total_docs += 1
+                if doc_incr >= 250:
+                    sys.stdout.write('.')
+                    sys.stdout.flush()
+                    doc_incr = 0
+                else:
+                    doc_incr += 1
             except UnicodeDecodeError, e:
                     pass
 

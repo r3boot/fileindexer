@@ -20,7 +20,11 @@ class ElasticSearchIndex:
             pass
 
     def index(self, meta):
-        self.__conn.index(meta, self.__ES_index_name, 'none')
+        try:
+            self.__conn.index(meta, self.__ES_index_name, 'none')
+        except pyes.exceptions.ElasticSearchException, e:
+            print(meta)
+            print(e)
 
     def query(self, query, page=0, pagelen=10):
         results = {

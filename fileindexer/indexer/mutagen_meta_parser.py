@@ -349,19 +349,19 @@ class MutagenMetadataParser:
         if v in self._mediums_remapper:
             v = self._mediums_remapper[v]
         try:
-            return {'release.medium': self._mediums[v]}
+            return self._mediums[v]
         except KeyError:
             print('Medium %s not found' % v)
-            return {}
+            return None
 
     def parse_duration_field(self, v):
         try:
             v = float(v)
-            return {'duration': int(round(v / 1000))}
+            return int(round(v / 1000))
         except ValueError:
-            return {}
+            return None
         except TypeError:
-            return {}
+            return None
 
     def valid_tag(self, tag):
         for k in self._valid_tags:
@@ -454,20 +454,15 @@ class MutagenMetadataParser:
                 print('CANNOT CONVERT TO UNICODE: %s' % value)
                 return {}
 
-            if not isinstance(value, unicode):
-                try:
-                    value = unicode(value, 'utf8')
-                except TypeError, e:
-                    if str(e) != 'decoding Unicode is not supported':
-                        print(e)
-                        continue
-                except UnicodeDecodeError:
-                    print('Cannot encode %s to unicode' % value)
+            for q in ['\'', '"']:
+                if value.startswith(q):
+                    value = value[1:]
+                elif value.endswith(q):
+                    value = value[:len(value)-1]
 
             for q in ['\x00']:
                 if value.endswith(q):
                     value = value.replace(q, '')
-
 
             if tag in self._string_fields:
                 meta[tag] = self.parse_string_field(value)
@@ -487,11 +482,14 @@ class MutagenMetadataParser:
                     meta['%s.%s' % (base, k)] = v
 
             elif tag in self._medium_fields:
-                meta[tag] = self.parse_medium_field(value)
+                result = self.parse_medium_field(value)
+                if result:
+                    meta[tag] = result
 
             elif tag in self._duration_fields:
-                meta[tag] = self.parse_duration_field(value)
-
+                result = self.parse_duration_field(value)
+                if result:
+                    meta[tag] = result
             else:
                 print('UNKNOWN FIELD: %s %s' % (tag, value))
                 sys.exit(1)

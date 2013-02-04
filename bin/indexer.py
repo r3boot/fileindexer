@@ -18,6 +18,7 @@ from fileindexer.log import get_logger
 from fileindexer.indexer.safe_unicode import safe_unicode
 from fileindexer.indexer.hachoir_meta_parser import HachoirMetadataParser, hachoir_mapper
 from fileindexer.indexer.mutagen_meta_parser import MutagenMetadataParser, mutagen_mimes
+from fileindexer.indexer.exif_meta_parser import ExifMetadataParser, exif_mimes
 
 __description__ = 'File Indexer'
 
@@ -42,6 +43,7 @@ def indexer_worker(worker_id, work_q, result_q, log_level):
     logger = get_logger(log_level)
     hmp = HachoirMetadataParser(logger)
     mmp = MutagenMetadataParser()
+    emp = ExifMetadataParser()
 
     logger.debug("Spawning worker %s" % worker_id)
 
@@ -119,6 +121,7 @@ def indexer_worker(worker_id, work_q, result_q, log_level):
                 types = mimetypes.guess_type(full_path)
                 scan_with_hachoir = False
                 scan_with_mutagen = False
+                scan_with_exif = False
 
                 if types[0] != None:
                     meta['mime'] = types[0]
@@ -129,6 +132,8 @@ def indexer_worker(worker_id, work_q, result_q, log_level):
                             break
                         elif mimetype in mutagen_mimes:
                             scan_with_mutagen = True
+                        if mimetype in exif_mimes:
+                            scan_with_exif = True
 
                     if scan_with_hachoir:
                         hmp_meta = None
@@ -141,6 +146,12 @@ def indexer_worker(worker_id, work_q, result_q, log_level):
                         mmp_meta = mmp.extract(meta)
                         if mmp_meta:
                             meta.update(mmp_meta)
+                    
+                    if scan_with_exif:
+                        emp_meta = None
+                        emp_meta = emp.extract(meta)
+                        if emp_meta:
+                            meta.update(emp_meta)
 
             results['metadata'].append(meta)
         
@@ -214,9 +225,12 @@ def main():
             result = result_q.get_nowait()
             empty_count = 0
         except Queue.Empty:
-            print('Queue is empty (work:%s)' % work_q.qsize())
-            empty_count += 1
-            time.sleep(0.1)
+            if work_q.qsize() > 0:
+                print('Waiting for results (work:%s)' % work_q.qsize())
+                time.sleep(1.0)
+            else:
+                empty_count += 1
+                time.sleep(0.1)
             continue
 
         if result:
@@ -249,7 +263,7 @@ def main():
     logger.debug('Writing metadata')
     fd = open('%s/00METADATA' % args.path[0], "w")
     fd.write('# fileindexer-0.1\n')
-    prefix_length = len(args.path[0])
+    prefix_length = len(args.path[0])+1
     for path in all_paths_idx:
         path = safe_unicode(path)
         if not path:
