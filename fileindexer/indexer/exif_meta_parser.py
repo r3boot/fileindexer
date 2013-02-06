@@ -54,15 +54,21 @@ class ExifMetadataParser:
         'EXIF CompressedBitsPerPixel',
         'EXIF CustomRendered',
         'EXIF CVAPattern',
+        'EXIF FocalPlaneResolutionUnit',
+        'EXIF FocalPlaneXResolution',
+        'EXIF FocalPlaneYResolution',
         'EXIF GainControl',
         'EXIF InteroperabilityOffset',
         'EXIF MakerNote',
         'EXIF SubSecTimeDigitized',
         'EXIF SubSecTimeOriginal',
         'EXIF Tag 0x',
+        'MakerNote',
         'Filename',
         'Image ExifOffset',
         'Image ResolutionUnit',
+        'Image Tag',
+        'Image WhitePoint',
         'Image XResolution',
         'Image YResolution',
         'JPEGThumbnail',
@@ -104,8 +110,10 @@ class ExifMetadataParser:
         'EXIF ShutterSpeedValue': 'img.raw.shutter.speed',
         'EXIF SubjectDistance': 'img.raw.subject.distance',
         'EXIF SubjectDistanceRange': 'img.raw.subject.distance.range',
+        'EXIF UserComment': 'comment',
         'EXIF WhiteBalance': 'img.raw.whitebalance',
         'Image DateTime': 'img.date',
+        'Image ImageDescription': 'description',
         'Image Make': 'img.raw.device_vendor',
         'Image Model': 'img.raw.device_model',
         'Image Orientation': 'img.orientation',
@@ -114,7 +122,10 @@ class ExifMetadataParser:
     }
 
     _string_fields = [
+        'comment',
+        'description',
         'img.raw.apeture',
+        'img.raw.apeture.max',
         'img.raw.contrast',
         'img.raw.device_model',
         'img.raw.device_vendor',
@@ -123,6 +134,7 @@ class ExifMetadataParser:
         'img.raw.exposure.time',
         'img.raw.file_source',
         'img.raw.fnumber',
+        'img.raw.focal.length',
         'img.raw.light_source',
         'img.raw.metering_mode',
         'img.raw.saturation',
@@ -137,10 +149,8 @@ class ExifMetadataParser:
     ]
 
     _int_fields = [
-        'img.raw.apeture.max',
         'img.raw.exif_version',
         'img.raw.exposure.bias',
-        'img.raw.focal.length',
         'img.raw.focal.length.35mm',
         'img.raw.iso_speed_rating',
         'img.raw.subject.distance.range',
@@ -157,9 +167,14 @@ class ExifMetadataParser:
         'img.raw.date.digitized',
     ]
 
-    def extract(self, meta):
+    _time_formats = [
+        '%Y:%m:%d %H:%M:%S',
+        '%d %b %Y %H:%M:%S'
+    ]
+
+    def extract(self, raw_meta):
         meta = {}
-        filename = meta['full_path']
+        filename = raw_meta['full_path']
         try:
             fd = open(filename, 'rb')
         except IOError, e:
@@ -167,7 +182,11 @@ class ExifMetadataParser:
             print('Failed to open %s' % filename)
             return
 
-        raw_meta = EXIF.process_file(fd, details=True, strict=False, debug=False)
+        try:
+            raw_meta = EXIF.process_file(fd, details=True, strict=False, debug=False)
+        except MemoryError:
+            print('Out-Of-Memory during EXIF.process_file')
+            return {}
 
         for k,v in raw_meta.items():
             ignore_tag = False
@@ -179,18 +198,43 @@ class ExifMetadataParser:
                 continue
 
             if not k in self._remapped_tags.keys():
-                print('UNKNOWN TAG: %s (%s)' % (k, v))
+                print('UNKNOWN TAG: %s (%s)' % (k, repr(v)))
                 continue
             k = self._remapped_tags[k]
 
-            v = str(v)
+            try:
+                v = str(v)
+            except TypeError:
+                print('CANNOT STRINGIFY VALUE: %s (%s)' % (k, repr(v)))
+                continue
+
+            if len(v) == 0:
+                print('EMPTY VALUE FOR %s' % (k))
+                continue
+
             if k in self._string_fields:
                 pass
             elif k in self._int_fields:
-                v = int(v)
+                try:
+                    v = int(v)
+                except ValueError, e:
+                    print("ERROR int(v): %s -> %s" % (k, v))
+                    print(e)
+                    continue
             elif k in self._datetime_fields:
-                time_struct = time.strptime(v, '%Y:%m:%d %H:%M:%S')
+                if ': ' in v:
+                    v = v.replace(': ', ':0')
+
+                time_struct = None
+                for fmt in self._time_formats:
+                    try:
+                        time_struct = time.strptime(v, fmt)
+                    except ValueError, e:
+                        pass
+
                 if time_struct:
                     v = datetime.datetime.fromtimestamp(time.mktime(time_struct)).isoformat()
+                else:
+                    print('NO FMT: %s' % v)
             meta[k] = v
         return meta

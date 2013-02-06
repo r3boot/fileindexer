@@ -5,8 +5,6 @@ import hachoir_core.stream
 import hachoir_metadata
 import hachoir_parser
 
-from fileindexer.indexer.hachoir_meta_enricher import HachoirMetaEnricher
-
 hachoir_mapper = {
     'application/bzip2': 'bzip2',
     'vnd.ms-cab-compressed': 'cab',
@@ -189,7 +187,8 @@ hachoir_mapper = {
     'video/vnd.sealedmedia.softseal.mov': 'mov',
     'video/x-quicktime': 'mov',
     'video/x-sgi-movie': 'mov',
-    'application/octet-stream': None
+    'video/mp4': 'mpeg_video',
+    'application/octet-stream': None,
 }
 
 class HachoirMetadataParser:
@@ -228,9 +227,7 @@ class HachoirMetadataParser:
     }
 
     def __init__(self, logger):
-        self.__l = logger
         self.charset = hachoir_core.i18n.getTerminalCharset()
-        self.hme = HachoirMetaEnricher()
 
     def extract(self, sparse_meta, quality, decoder):
         """this code comes from processFile in hachoir-metadata"""
@@ -254,11 +251,11 @@ class HachoirMetadataParser:
             parser = None
             parser = hachoir_parser.createParser(sparse_meta['full_path'], real_filename=real_filename, tags=tags)
         except hachoir_core.stream.InputStreamError, err:
-            self.__l.error('Failed to create parser for %s' % sparse_meta['full_path'])
-            self.__l.error(err)
+            print('Failed to create parser for %s' % sparse_meta['full_path'])
+            print(err)
             return False
         if not parser:
-            self.__l.error('No parser found for %s' % sparse_meta['full_path'])
+            print('No parser found for %s' % sparse_meta['full_path'])
             return False
 
         # Extract metadata
@@ -266,11 +263,11 @@ class HachoirMetadataParser:
         try:
             results = hachoir_metadata.extractMetadata(parser, quality)
         except hachoir_core.error.HachoirError, err:
-            self.__l.error('Failed to extract metadata for %s' % sparse_meta['filename'])
-            self.__l.error(err)
+            print('Failed to extract metadata for %s' % sparse_meta['full_path'])
+            print(err)
             return False
         if not results:
-            self.__l.error('No metadata found for %s' % sparse_meta['filename'])
+            print('No metadata found for %s' % sparse_meta['full_path'])
             return False
 
         # Convert metadata to dictionary
@@ -304,4 +301,4 @@ class HachoirMetadataParser:
                 # this is a category
                 cur_k = self._remapper[line.replace(':', '')]
         line = None
-        return self.hme.enrich(meta)
+        return meta

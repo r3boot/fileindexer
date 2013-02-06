@@ -7,6 +7,7 @@ import logging
 import requests
 import sys
 import time
+import urlparse
 
 sys.path.append('/home/r3boot/fileindexer')
 
@@ -27,6 +28,7 @@ ll2str = {
 
 def crawler_task(logger, url):
     metafile = '%s/00METADATA' % url
+    url_data = urlparse.urlparse(url)
 
     _stringfields = ['url', 'filename', 'checksum', 'framerate', 'bitrate', 'samplerate', 'comment', 'endianness', 'compression', 'channel', 'language', 'title', 'author', 'artist', 'album', 'producer', 'video', 'audio', 'subtitle', 'file']
     _datefields = ['atime', 'ctime', 'mtime']
@@ -56,6 +58,8 @@ def crawler_task(logger, url):
             (filename, raw_meta) = raw_meta.split('\t')
             meta = json.loads(raw_meta)
             meta['filename'] = filename
+            meta['server'] = url_data.netloc
+            meta['protocol'] = url_data.scheme
             try:
                 meta['url'] = u'%s/%s' % (url, filename)
                 for field in _stringfields:

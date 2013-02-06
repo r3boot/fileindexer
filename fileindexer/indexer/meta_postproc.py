@@ -1,6 +1,295 @@
 import os
 
-class HachoirMetaEnricher:
+class MetadataPostProcessor:
+    _text_mimes = [
+        'application/msword',
+        'application/pdf',
+        'application/postscript',
+        'application/vnd.oasis.opendocument.text',
+        'application/x-info',
+        'application/x-texinfo',
+        'application/xml',
+        'chemical/x-chemdraw'
+    ]
+
+    _archive_mimes = [
+        'application/mac-binhex40',
+        'application/rar',
+        'application/x-7z-compressed',
+        'application/x-apple-diskimage',
+        'application/x-bittorrent',
+        'application/x-stuffit',
+        'application/x-tar',
+        'application/x-wingz',
+        'application/zip'
+    ]
+
+    _iso_mimes = ['application/x-iso9660-image']
+
+    _code_mimes = [
+        'application/x-tex-pk',
+        'application/x-troff',
+        'application/x-wais-source',
+        'chemical/x-molconn-Z',
+        'chemical/x-vamas-iso14976',
+        'text/css',
+        'text/x-c++src',
+        'text/x-chdr',
+        'text/x-csrc',
+        'text/x-diff',
+        'text/x-dsrc',
+        'text/x-pascal',
+        'text/x-perl',
+        'text/x-python',
+        'text/x-sh'
+    ]
+
+    _binary_mimes = [
+        'application/octet-stream',
+        'application/x-font',
+        'application/x-ns-proxy-autoconfig'
+    ]
+
+    _checksum_mimes = [
+        'application/pgp-keys',
+        'application/pgp-signature',
+        'application/x-md5',
+        'application/x-sha1'
+    ]
+
+    _playlist_mimes = ['application/x-mpegURL']
+
+    _executable_mimes = ['application/x-msdos-program']
+
+    _text_exts = [
+        '1st',
+        '2nd',
+        'AUX',
+        'NFO',
+        'README',
+        'accurip',
+        'aux',
+        'changes',
+        'cisco',
+        'cnf',
+        'compilation_problems',
+        'conf',
+        'contrib',
+        'decw$book',
+        'delivery',
+        'diz',
+        'dos',
+        'examples',
+        'guide',
+        'help',
+        'hlp',
+        'inf',
+        'ini',
+        'int',
+        'log',
+        'message',
+        'mms',
+        'msg',
+        'nfo',
+        'nfo~',
+        'package_name',
+        'pc',
+        'projects',
+        'sub',
+        'text',
+        'title_page',
+        'tpu',
+        'tpu$section',
+        'url',
+        'vest_me',
+        'xml_stuff'
+    ]
+
+    _binary_exts = [
+        'IMA',
+        'XB',
+        'XM',
+        'card',
+        'db',
+        'e',
+        'fdl',
+        'idx',
+        'ipf_obj',
+        'mar',
+        'mem',
+        'olb',
+        'smc'
+    ]
+
+    _iso_exts = ['CUE', 'IMG', 'cue', 'mdf', 'mds']
+
+    _audio_exts = ['ac3', 'ass', 'mp3-missing']
+
+    _video_exts = ['BUP', 'IFO', 'M4V', 'VOB', 'f4v', 'img', 'mp7', 'ogm', 'vob']
+
+    _checksum_exts = ['pem', 'sha256', 'sha512']
+
+    _executable_exts = [
+        'alpha_exe',
+        'alpha_map',
+        'alpha_obj',
+        'alpha_olb',
+        'axp_exe',
+        'com_orig',
+        'exe_alp_v72',
+        'exe_alp_v721',
+        'exe_alp_v732',
+        'exe_alp_v82',
+        'exe_alpha',
+        'exe_axp',
+        'exe_axp_v62',
+        'exe_axp_v72',
+        'exe_axp_v721',
+        'exe_axp_v731',
+        'exe_axp_v732',
+        'exe_axp_v82',
+        'exe_i64_v82',
+        'exe_i64_v821',
+        'exe_v62',
+        'exe_v71',
+        'exe_v72',
+        'exe_v721',
+        'exe_v73',
+        'exe_v732',
+        'exe_vax',
+        'i64_exe',
+        'ia64_exe',
+        'ia64_obj',
+        'int_img',
+        'int_img_axp',
+        'ipf_exe',
+        'ipf_map',
+        'ipf_olb',
+        'itanium_exe',
+        'itanium_obj',
+        'obj_alpha',
+        'obj_ia64',
+        'obj_vax',
+        'olb_alpha',
+        'vax_exe',
+        'vax_map',
+        'vax_obj',
+        'vax_olb',
+        'vax_vaxc_exe'
+    ]
+
+    _code_exts = [
+        '1_preformatted',
+        'ac',
+        'ad',
+        'adb',
+        'ads',
+        'am',
+        'asm',
+        'awk',
+        'b32',
+        'bas',
+        'blc',
+        'bor',
+        'build',
+        'c_orig',
+        'cld',
+        'clp',
+        'cob',
+        'com_source',
+        'cpl',
+        'dcl',
+        'def',
+        'dj2',
+        'djg',
+        'dsm',
+        'dsp',
+        'dsw',
+        'emx',
+        'filter',
+        'for',
+        'gcc',
+        'gnm',
+        'gpr',
+        'guess',
+        'h_example',
+        'h_in',
+        'h_orig',
+        'h_txt',
+        'h_vms',
+        'hlb',
+        'icc',
+        'icc',
+        'in',
+        'in_h',
+        'inc',
+        'iss',
+        'jnl',
+        'l',
+        'lis',
+        'm4',
+        'macro',
+        'macros',
+        'main',
+        'mak',
+        'mbu',
+        'mcl',
+        'miff',
+        'mlb',
+        'msc',
+        'nsi',
+        'nt',
+        'odl',
+        'oldstyle',
+        'opt',
+        'opts',
+        'os2',
+        'pam',
+        'postinst',
+        'pov',
+        'prj',
+        'pup',
+        'tab',
+        'tab_c',
+        'tab_h',
+        'tbl',
+        'tc',
+        'tlb',
+        'vc',
+        'version',
+        'vms_bash',
+        'wavelet',
+        'wnt',
+        'xs',
+        'y',
+        'yy_c',
+        'yy_c2',
+        'yy_cc'
+    ]
+
+    _archive_exts = [
+        '1_gz',
+        'BCK',
+        'ace',
+        'bck',
+        'bz2',
+        'cckd',
+        'depot',
+        'gz',
+        'lsm',
+        'nzb',
+        'par2',
+        'pcsi',
+        'pcsi$compressed',
+        'qpg',
+        'srr',
+        'srs',
+        'tar-bz2',
+        'tar-gz',
+        'tif-gz',
+        'tif_gz'
+    ]
+
     def parse_filetype(self, fname, v):
         meta = {}
         meta['is_text'] = False
@@ -17,22 +306,22 @@ class HachoirMetaEnricher:
 
         ## Begin with mimetype based parsing, and finish off with extension
         ## based parsing
-        if v in ['application/pdf', 'chemical/x-chemdraw', 'application/vnd.oasis.opendocument.text', 'application/postscript', 'application/xml', 'application/msword', 'application/x-texinfo', 'application/x-info']:
+        if v in self._text_mimes:
             meta['is_text'] = True
-        elif v in ['application/zip', 'application/rar', 'application/x-wingz', 'application/x-tar', 'application/x-bittorrent', 'application/x-stuffit', 'application/x-7z-compressed', 'application/x-apple-diskimage', 'application/mac-binhex40']:
+        elif v in self._archive_mimes:
             meta['is_archive'] = True
-        elif v in ['application/x-iso9660-image']:
+        elif v in self._iso_mimes:
             meta['is_iso'] = True
-        elif v in ['text/x-python', 'text/x-csrc', 'text/x-diff', 'application/x-troff', 'chemical/x-vamas-iso14976', 'text/x-chdr', 'text/x-c++src', 'chemical/x-molconn-Z', 'text/css', 'text/x-perl', 'text/x-sh', 'text/x-pascal', 'text/x-dsrc', 'application/x-wais-source', 'application/x-tex-pk']:
+        elif v in self._code_mimes:
             meta['is_code'] = True
             meta['is_text'] = True
-        elif v in ['application/octet-stream', 'application/x-ns-proxy-autoconfig', 'application/x-font']:
+        elif v in self._binary_mimes:
             meta['is_binary'] = True
-        elif v in ['application/x-md5', 'application/x-sha1', 'application/pgp-signature', 'application/pgp-keys']:
+        elif v in self._checksum_mimes:
             meta['is_checksum'] = True
-        elif v in ['application/x-mpegURL']:
+        elif v in self._playlist_mimes:
             meta['is_playlist'] = True
-        elif v in ['application/x-msdos-program']:
+        elif v in self._executable_mimes:
             meta['is_executable'] = True
             meta['is_binary'] = True
         elif v.startswith('text/'):
@@ -44,25 +333,25 @@ class HachoirMetaEnricher:
         elif v.startswith('image/'):
             meta['is_picture'] = True
 
-        elif v in ['nfo', 'nfo~', 'diz', 'log', 'message', 'NFO', 'ini', 'sub', 'accurip', 'url', 'README', 'AUX', 'aux', 'help', 'changes', 'dos', '2nd', 'hlp', 'mms', 'msg', 'compilation_problems', 'xml_stuff', '1st', 'cnf', 'conf', 'int', 'tpu', 'decw$book', 'package_name', 'vest_me', 'title_page', 'guide', 'delivery', 'inf', 'tpu$section', 'pc', 'projects', 'examples', 'contrib', 'text', 'cisco']:
+        elif v in self._text_exts:
             meta['is_text'] = True
-        elif v in ['db', 'smc', 'idx', 'IMA', 'XM', 'XB', 'mem', 'card', 'mar', 'ipf_obj', 'olb', 'fdl', 'e']:
+        elif v in self._binary_exts:
             meta['is_binary'] = True
-        elif v in ['cue', 'mds', 'mdf', 'CUE', 'IMG']:
+        elif v in self._iso_exts:
             meta['is_iso'] = True
-        elif v in ['ass', 'mp3-missing', 'ac3']:
+        elif v in self._audio_exts:
             meta['is_audio'] = True
-        elif v in ['ogm', 'f4v', 'img', 'vob', 'mp7', 'VOB', 'M4V', 'IFO', 'BUP']:
+        elif v in self._video_exts:
             meta['is_video'] = True
-        elif v in ['sha256', 'sha512', 'pem']:
+        elif v in self._checksum_exts:
             meta['is_checksum'] = True
-        elif v in ['alpha_exe', 'alpha_obj', 'vax_exe', 'vax_obj', 'ia64_exe', 'ia64_obj', 'com_orig', 'alpha_olb', 'alpha_map', 'ipf_exe', 'ipf_map', 'ipf_olb', 'vax_olb', 'vax_map', 'itanium_obj', 'exe_axp', 'exe_v721', 'exe_v73', 'exe_v72', 'axp_exe', 'i64_exe', 'exe_axp_v72', 'exe_axp_v721', 'exe_axp_v732', 'exe_i64_v821', 'exe_axp_v82', 'exe_v62', 'exe_v732', 'exe_axp_v62', 'exe_axp_v731', 'exe_i64_v82', 'exe_vax', 'exe_alpha', 'int_img', 'int_img_axp', 'exe_v71', 'exe_alp_v72', 'exe_alp_v721', 'exe_alp_v732', 'exe_alp_v82', 'obj_alpha', 'obj_ia64', 'obj_vax', 'itanium_exe', 'vax_vaxc_exe', 'olb_alpha']:
+        elif v in self._executable_exts:
             meta['is_executable'] = True
             meta['is_binary'] = True
-        elif v in ['vms_bash', 'for', 'c_orig', 'version', 'opt', 'inc', 'cld', 'hlb', 'h_orig', '1_preformatted', 'def', 'dsp', 'msc', 'mlb', 'bas', 'macros', 'm4', 'gcc', 'h_in', 'in', 'am', 'prj', 'opts', 'os2', 'h_txt', 'guess', 'ac', 'dcl', 'cob', 'tlb', 'h_vms', 'nt', 'vc', 'macro', 'l', 'tab_h', 'y', 'h_example', 'com_source', 'asm', 'bor', 'djg', 'cpl', 'jnl', 'xs', 'pov', 'miff', 'gnm', 'pam', 'b32', 'wavelet', 'mcl', 'blc', 'icc', 'wnt', 'mak', 'awk', 'emx', 'icc', 'ad', 'iss', 'nsi', 'dsm', 'dsw', 'odl', 'in_h', 'pup', 'adb', 'clp', 'build', 'postinst', 'dj2', 'tc', 'ads', 'gpr', 'lis', 'tab', 'main', 'mbu', 'tbl', 'filter', 'yy_c', 'yy_cc', 'yy_c2', 'oldstyle', 'tab_c']:
+        elif v in self._code_exts:
             meta['is_code'] = True
             meta['is_text'] = True
-        elif v in ['par2', 'nzb', 'gz', 'ace', 'lsm', 'pcsi', 'bz2', 'cckd', 'depot', 'srr', 'srs', 'pcsi$compressed', 'tar-gz', 'bck', 'tif_gz', 'tif-gz', '1_gz', 'BCK', 'qpg', 'tar-bz2']:
+        elif v in self._archive_exts:
             meta['is_archive'] = True
         elif v.startswith('r') or v.startswith('s'):
             try:
@@ -116,7 +405,10 @@ class HachoirMetaEnricher:
         return meta
 
     def parse_length(self, v):
-        return int(v.split()[0])
+        if isinstance(v, int) or isinstance(v, float):
+            return v
+        else:
+            return int(v.split()[0])
 
     def parse_compression(self, k, v):
         remapper = {
@@ -235,10 +527,12 @@ class HachoirMetaEnricher:
         return meta
 
     def parse_samplerate(self, v):
-        return {'samplerate': float(v.split()[0])}
+        if isinstance(v, int) or isinstance(v, float):
+            return {'samplerate': v}
+        else:
+            return {'samplerate': float(v.split()[0])}
 
     def parse_duration(self, k, v):
-
         t = v.split()
         total = 0
         cur_val = 0
@@ -266,7 +560,7 @@ class HachoirMetaEnricher:
     def parse_framerate(self, v):
         return {'framerate': int(v.split('.')[0])}
 
-    def enrich(self, raw_meta):
+    def process(self, raw_meta):
         meta = {}
         meta['filetype'] = os.path.splitext(raw_meta['filename'])[1][1:]
 
@@ -305,6 +599,8 @@ class HachoirMetaEnricher:
             elif 'samplerate' in k:
                 meta.update(self.parse_samplerate(v))
             elif 'duration' in k:
+                if isinstance(v, int) or isinstance(v, float):
+                    continue
                 meta.update(self.parse_duration(k, v))
             elif 'language' in k:
                 meta.update(self.parse_language(k, v))

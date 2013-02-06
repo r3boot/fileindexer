@@ -16,9 +16,12 @@ sys.path.append('/people/r3boot/fileindexer')
 
 from fileindexer.log import get_logger
 from fileindexer.indexer.safe_unicode import safe_unicode
+from fileindexer.indexer.file_meta_parser import FileMetadataParser
 from fileindexer.indexer.hachoir_meta_parser import HachoirMetadataParser, hachoir_mapper
+from fileindexer.indexer.enzyme_meta_parser import EnzymeMetadataParser, enzyme_mimes
 from fileindexer.indexer.mutagen_meta_parser import MutagenMetadataParser, mutagen_mimes
 from fileindexer.indexer.exif_meta_parser import ExifMetadataParser, exif_mimes
+from fileindexer.indexer.meta_postproc import MetadataPostProcessor
 
 __description__ = 'File Indexer'
 
@@ -41,9 +44,12 @@ ll2str = {
 def indexer_worker(worker_id, work_q, result_q, log_level):
 
     logger = get_logger(log_level)
+    fmp = FileMetadataParser()
     hmp = HachoirMetadataParser(logger)
+    emp = EnzymeMetadataParser()
     mmp = MutagenMetadataParser()
-    emp = ExifMetadataParser()
+    Emp = ExifMetadataParser()
+    mpp = MetadataPostProcessor()
 
     logger.debug("Spawning worker %s" % worker_id)
 
@@ -59,15 +65,14 @@ def indexer_worker(worker_id, work_q, result_q, log_level):
         print('(worker %s) Indexing: %s' % (worker_id, path))
 
         results = None
-        results = {}
-        results['path'] = path
-        results['metadata'] = []
+        results = []
         if not os.access(path, os.R_OK | os.X_OK):
             logger.warn('(worker %s) Cannot access %s' % (worker_id, path))
             continue
 
         found = None
         for found in os.listdir(path):
+            ## Send keepalive
             result_q.put(worker_id+100)
 
             # TODO
@@ -117,45 +122,61 @@ def indexer_worker(worker_id, work_q, result_q, log_level):
             meta['ctime'] = st.st_ctime
 
             if not meta['is_dir']:
-                types = None
-                types = mimetypes.guess_type(full_path)
+                scan_with_file = True
                 scan_with_hachoir = False
                 scan_with_mutagen = False
                 scan_with_exif = False
 
-                if types[0] != None:
-                    meta['mime'] = types[0]
-                if types and types[0] != None:
-                    for mimetype in types:
-                        if mimetype in hachoir_mapper:
-                            scan_with_hachoir = True
-                            break
-                        elif mimetype in mutagen_mimes:
-                            scan_with_mutagen = True
-                        if mimetype in exif_mimes:
-                            scan_with_exif = True
+                types = None
+                types = mimetypes.guess_type(full_path)
 
-                    if scan_with_hachoir:
+                if types and types[0] != None:
+                    meta['mime'] = types[0]
+                    #if not scan_with_hachoir and meta['mime'] in hachoir_mapper:
+                    if not scan_with_hachoir and meta['mime'] in enzyme_mimes:
+                        scan_with_hachoir = True
+                    if not scan_with_mutagen and meta['mime'] in mutagen_mimes:
+                        scan_with_mutagen = True
+                    if not scan_with_exif and meta['mime'] in exif_mimes:
+                        scan_with_exif = True
+
+                if scan_with_file:
+                    fmp_meta = None
+                    fmp_meta = fmp.extract(meta)
+                    if fmp_meta:
+                        meta.update(fmp_meta)
+
+                if scan_with_hachoir:
+                    emp_meta = None
+                    emp_meta = emp.extract(meta)
+                    if emp_meta:
+                        meta.update(emp_meta)
+                    else:
                         hmp_meta = None
-                        hmp_meta = hmp.extract(meta, 0.5,  hachoir_mapper[mimetype])
+                        hmp_meta = hmp.extract(meta, 0.5,  hachoir_mapper[meta['mime']])
                         if hmp_meta:
                             meta.update(hmp_meta)
 
-                    elif scan_with_mutagen:
-                        mmp_meta = None
-                        mmp_meta = mmp.extract(meta)
-                        if mmp_meta:
-                            meta.update(mmp_meta)
+                if scan_with_mutagen:
+                    #print('[*] Scanning %s with mutagen' % meta['filename'])
+                    mmp_meta = None
+                    mmp_meta = mmp.extract(meta)
+                    if mmp_meta:
+                        meta.update(mmp_meta)
                     
-                    if scan_with_exif:
-                        emp_meta = None
-                        emp_meta = emp.extract(meta)
-                        if emp_meta:
-                            meta.update(emp_meta)
+                if scan_with_exif:
+                    #print('[*] Scanning %s with EXIF' % meta['filename'])
+                    Emp_meta = None
+                    Emp_meta = Emp.extract(meta)
+                    if Emp_meta:
+                        meta.update(Emp_meta)
 
-            results['metadata'].append(meta)
-        
-        result_q.put(results['metadata'])
+            for k,v in mpp.process(meta).items():
+                meta[k] = v
+            results.append(meta)
+
+        if len(results) > 0:
+            result_q.put(results)
 
     logger.debug('worker exiting')
 
@@ -262,7 +283,7 @@ def main():
 
     logger.debug('Writing metadata')
     fd = open('%s/00METADATA' % args.path[0], "w")
-    fd.write('# fileindexer-0.1\n')
+    fd.write('# fileindexer v=0.1\n')
     prefix_length = len(args.path[0])+1
     for path in all_paths_idx:
         path = safe_unicode(path)
@@ -270,7 +291,16 @@ def main():
             continue
         meta = all_paths[path]
         path = path[prefix_length:]
-        meta = json.dumps(meta)
+        try:
+            meta = json.dumps(meta)
+        except TypeError, e:
+            print(e)
+            print(meta)
+            continue
+        except UnicodeDecodeError, e:
+            print(e)
+            print(meta)
+            continue
         fd.write(path.encode('UTF-8'))
         fd.write('\t')
         fd.write(meta)
