@@ -66,6 +66,8 @@ class FileMetadataParser:
 
             if k == 'other':
                 meta[k] = v[0]
+            elif k == 'date':
+                meta[k] = v.isoformat()
             elif k in ['language', 'subtitleLanguage']:
                 v = safe_unicode(v)
                 if not v:

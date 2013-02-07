@@ -144,17 +144,20 @@ def indexer_worker(worker_id, work_q, result_q, log_level):
                     fmp_meta = None
                     fmp_meta = fmp.extract(meta)
                     if fmp_meta:
+                        #print("fmp_meta: %s" % fmp_meta)
                         meta.update(fmp_meta)
 
                 if scan_with_hachoir:
                     emp_meta = None
                     emp_meta = emp.extract(meta)
                     if emp_meta:
+                        #print('emp_meta: %s' % emp_meta)
                         meta.update(emp_meta)
                     else:
                         hmp_meta = None
                         hmp_meta = hmp.extract(meta, 0.5,  hachoir_mapper[meta['mime']])
                         if hmp_meta:
+                            #print('hmp_meta: %s' % hmp_meta)
                             meta.update(hmp_meta)
 
                 if scan_with_mutagen:
@@ -162,6 +165,7 @@ def indexer_worker(worker_id, work_q, result_q, log_level):
                     mmp_meta = None
                     mmp_meta = mmp.extract(meta)
                     if mmp_meta:
+                        #print('mmp_meta: %s' % mmp_meta)
                         meta.update(mmp_meta)
                     
                 if scan_with_exif:
@@ -169,6 +173,7 @@ def indexer_worker(worker_id, work_q, result_q, log_level):
                     Emp_meta = None
                     Emp_meta = Emp.extract(meta)
                     if Emp_meta:
+                        #print('Emp_meta: %s' % Emp_meta)
                         meta.update(Emp_meta)
 
             for k,v in mpp.process(meta).items():

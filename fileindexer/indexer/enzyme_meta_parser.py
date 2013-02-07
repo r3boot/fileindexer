@@ -43,7 +43,7 @@ enzyme_mimes = [
 ]
 
 class EnzymeMetadataParser:
-    _ignored_tags = ['delay', 'mime']
+    _ignored_tags = ['delay', 'mime', 'codec_private',]
 
     _remapped_tags = {
         'type': 'release.container',
@@ -83,6 +83,8 @@ class EnzymeMetadataParser:
                     for i in v:
                         tmp = dict(i)
                         for k_tmp, v_tmp in tmp.items():
+                            if k_tmp in self._ignored_tags:
+                                continue
                             if not v_tmp:
                                 continue
                             key = '%s.%s.%s' % (k, j, k_tmp)
