@@ -373,37 +373,6 @@ class MetadataPostProcessor:
                 pass
         return meta
 
-    def parse_bitrate(self, k, v):
-        meta = {}
-
-        if k == 'bitrate':
-            prefix = 'video'
-        elif k == 'audio_bitrate':
-            prefix = 'audio'
-        elif k == 'file_bitrate':
-            prefix = 'audio'
-        elif k == 'video_bitrate':
-            prefix = 'video'
-        else:
-            return meta
-
-        if '(Variable bit rate)' in v:
-            meta['vbr'] = True
-        else:
-            meta['vbr'] = False
-
-        t = v.split()
-        if t[1] == 'bit/s':
-            meta['%s_bitrate' % prefix] = float(t[0])
-        elif t[1] == 'Kbit/sec':
-            meta['%s_bitrate' % prefix] = float(t[0])*1024
-        elif t[1] == 'Mbit/sec':
-            meta['%s_bitrate' % prefix] = float(t[0])*1024*1024
-        elif t[1] == 'Gbit/sec':
-            meta['%s_bitrate' % prefix] = float(t[0])*1024*1024*1024
-
-        return meta
-
     def parse_length(self, v):
         if isinstance(v, int) or isinstance(v, float):
             return v
@@ -475,142 +444,16 @@ class MetadataPostProcessor:
             if meta.has_key('compression'):
                 meta['compressor'] = v
 
-        #if meta != {}:
-        #    meta['keyword'] = k
-
         return meta
 
-    def parse_compression_rate(self, v):
-        return float(v.replace('x', ''))
+    def process(self, meta):
 
-    def parse_title(self, k, v):
-        meta = {}
+        meta['filetype'] = os.path.splitext(meta['filename'])[1][1:]
 
-        if k == 'file_title':
-            prefix = 'audio'
-        elif k == 'audio_title':
-            prefix = 'audio'
-        elif k == 'video_title':
-            prefix = 'video'
-        elif k == 'title':
-            prefix = 'video'
+        if meta.has_key('mime'):
+            meta.update(self.parse_filetype(meta['filename'], meta['mime']))
         else:
-            return meta
-
-        meta['%s_title' % prefix] = v
-        return meta
-
-    def parse_channel(self, v):
-        meta = {}
-        if v in ['mono', 'Single channel']:
-            meta['stereo'] = False
-            meta['channels'] = 1
-        elif v in ['Stereo', 'Joint stereo', 'Dual channel', 'stereo']:
-            meta['stereo'] = True
-            meta['channels'] = 2
-        else:
-            try:
-                channels = int(v)
-                meta['stereo'] = True
-                meta['channels'] = channels
-            except:
-                pass
-
-        return meta
-
-    def parse_endianness(self, v):
-        meta = {}
-        if v in ['Little endian']:
-            meta['endianness'] = 'little'
-        elif v in ['Big endian']:
-            meta['endianness'] = 'big'
-        return meta
-
-    def parse_samplerate(self, v):
-        if isinstance(v, int) or isinstance(v, float):
-            return {'samplerate': v}
-        else:
-            return {'samplerate': float(v.split()[0])}
-
-    def parse_duration(self, k, v):
-        t = v.split()
-        total = 0
-        cur_val = 0
-        for i in xrange(len(t)):
-            try:
-                cur_val = int(t[i])
-            except:
-                if t[i] == 'ms':
-                    total += cur_val * 0.001
-                elif t[i] == 'sec':
-                    total += cur_val
-                elif t[i] == 'min':
-                    total += cur_val * 60
-                elif t[i] == 'hour':
-                    total += cur_val * 60 * 60
-                cur_val = 0
-
-        return {'duration': total}
-
-    def parse_language(self, k, v):
-        if k == 'file_language':
-            k = 'audio_language'
-        return {k: v}
-
-    def parse_framerate(self, v):
-        return {'framerate': int(v.split('.')[0])}
-
-    def process(self, raw_meta):
-        meta = {}
-        meta['filetype'] = os.path.splitext(raw_meta['filename'])[1][1:]
-
-        if raw_meta.has_key('mime'):
-            meta.update(self.parse_filetype(raw_meta['filename'], raw_meta['mime']))
-        else:
-            meta.update(self.parse_filetype(raw_meta['filename'], meta['filetype']))
-
-        for k,v in raw_meta.items():
-            if 'height' in k:
-                meta['height'] = self.parse_length(v)
-            elif 'width' in k:
-                meta['width'] = self.parse_length(v)
-            elif 'bitrate' in k:
-                meta.update(self.parse_bitrate(k, v))
-            elif 'compression' in k and not '_rate' in k:
-                meta.update(self.parse_compression(k, v))
-            elif 'compression_rate' in k:
-                meta['compression_rate'] = self.parse_compression_rate(v)
-            elif 'artist' in k:
-                meta['artist'] = v
-            elif 'album' in k:
-                meta['album'] = v
-            elif 'author' in k:
-                meta['author'] = v
-            elif 'producer' in k:
-                meta['producer'] = v
-            elif 'title' in k and not 'language' in k:
-                meta.update(self.parse_title(k, v))
-            elif 'comment' in k:
-                meta['comment'] = v
-            elif 'channel' in k:
-                meta.update(self.parse_channel(v))
-            elif 'endian' in k:
-                meta.update(self.parse_endianness(v))
-            elif 'samplerate' in k:
-                meta.update(self.parse_samplerate(v))
-            elif 'duration' in k:
-                if isinstance(v, int) or isinstance(v, float):
-                    continue
-                meta.update(self.parse_duration(k, v))
-            elif 'language' in k:
-                meta.update(self.parse_language(k, v))
-            elif 'framerate' in k:
-                if not 'framerate' in meta.keys():
-                    meta.update(self.parse_framerate(v))
-            elif k == 'file':
-                pass
-            elif k in ['uid', 'checksum', 'ctime', 'filename', 'gid', 'mode', 'mtime', 'is_dir', 'atime', 'full_path', 'size', 'mime']:
-                meta[k] = v
+            meta.update(self.parse_filetype(meta['filename'], meta['filetype']))
 
         keys = meta.keys()
         if not meta['is_dir'] and meta['is_video'] and 'width' in keys and 'height' in keys:
@@ -634,4 +477,5 @@ class MetadataPostProcessor:
                 meta['video_format'] = '1080p'
                 meta['aspect_ratio'] = '16:9'
                 meta['hd'] = True
+
         return meta

@@ -5,22 +5,18 @@ import argparse
 import hashlib
 import json
 import logging
-import mimetypes
 import multiprocessing
 import os
 import stat
 import sys
 import time
 
+import pprint
+
 sys.path.append('/people/r3boot/fileindexer')
 
-from fileindexer.log import get_logger
+from fileindexer.indexer import MetadataParser
 from fileindexer.indexer.safe_unicode import safe_unicode
-from fileindexer.indexer.file_meta_parser import FileMetadataParser
-from fileindexer.indexer.hachoir_meta_parser import HachoirMetadataParser, hachoir_mapper
-from fileindexer.indexer.enzyme_meta_parser import EnzymeMetadataParser, enzyme_mimes
-from fileindexer.indexer.mutagen_meta_parser import MutagenMetadataParser, mutagen_mimes
-from fileindexer.indexer.exif_meta_parser import ExifMetadataParser, exif_mimes
 from fileindexer.indexer.meta_postproc import MetadataPostProcessor
 
 __description__ = 'File Indexer'
@@ -43,15 +39,10 @@ ll2str = {
 
 def indexer_worker(worker_id, work_q, result_q, log_level):
 
-    logger = get_logger(log_level)
-    fmp = FileMetadataParser()
-    hmp = HachoirMetadataParser(logger)
-    emp = EnzymeMetadataParser()
-    mmp = MutagenMetadataParser()
-    Emp = ExifMetadataParser()
+    mp = MetadataParser()
     mpp = MetadataPostProcessor()
 
-    logger.debug("Spawning worker %s" % worker_id)
+    print("[*] Spawning worker %s" % worker_id)
 
     while True:
         path = None
@@ -67,7 +58,7 @@ def indexer_worker(worker_id, work_q, result_q, log_level):
         results = None
         results = []
         if not os.access(path, os.R_OK | os.X_OK):
-            logger.warn('(worker %s) Cannot access %s' % (worker_id, path))
+            print('[*] (worker %s) Cannot access %s' % (worker_id, path))
             continue
 
         found = None
@@ -96,15 +87,15 @@ def indexer_worker(worker_id, work_q, result_q, log_level):
             meta['full_path'] = full_path
 
             if os.path.islink(full_path):
-                logger.warn('(worker %s) Skipping symlink %s' % (worker_id, full_path))
+                print('(worker %s) Skipping symlink %s' % (worker_id, full_path))
                 continue
 
             st = None
             try:
                 st = os.stat(full_path)
             except OSError, e:
-                logger.warn('(worker %s) Cannot stat %s' % (worker_id, full_path))
-                logger.warn(e)
+                print('(worker %s) Cannot stat %s' % (worker_id, full_path))
+                print(e)
                 continue
 
             meta['is_dir'] = stat.S_ISDIR(st.st_mode)
@@ -122,68 +113,21 @@ def indexer_worker(worker_id, work_q, result_q, log_level):
             meta['ctime'] = st.st_ctime
 
             if not meta['is_dir']:
-                scan_with_file = True
-                scan_with_hachoir = False
-                scan_with_mutagen = False
-                scan_with_exif = False
+                mp_meta = mp.extract(full_path)
+                if mp_meta:
+                    meta.update(mp_meta)
 
-                types = None
-                types = mimetypes.guess_type(full_path)
+            #pprint.pprint(meta)
+            processed_meta = mpp.process(meta)
+            processed_meta.update(meta)
+            meta = processed_meta
 
-                if types and types[0] != None:
-                    meta['mime'] = types[0]
-                    #if not scan_with_hachoir and meta['mime'] in hachoir_mapper:
-                    if not scan_with_hachoir and meta['mime'] in enzyme_mimes:
-                        scan_with_hachoir = True
-                    if not scan_with_mutagen and meta['mime'] in mutagen_mimes:
-                        scan_with_mutagen = True
-                    if not scan_with_exif and meta['mime'] in exif_mimes:
-                        scan_with_exif = True
-
-                if scan_with_file:
-                    fmp_meta = None
-                    fmp_meta = fmp.extract(meta)
-                    if fmp_meta:
-                        #print("fmp_meta: %s" % fmp_meta)
-                        meta.update(fmp_meta)
-
-                if scan_with_hachoir:
-                    emp_meta = None
-                    emp_meta = emp.extract(meta)
-                    if emp_meta:
-                        #print('emp_meta: %s' % emp_meta)
-                        meta.update(emp_meta)
-                    else:
-                        hmp_meta = None
-                        hmp_meta = hmp.extract(meta, 0.5,  hachoir_mapper[meta['mime']])
-                        if hmp_meta:
-                            #print('hmp_meta: %s' % hmp_meta)
-                            meta.update(hmp_meta)
-
-                if scan_with_mutagen:
-                    #print('[*] Scanning %s with mutagen' % meta['filename'])
-                    mmp_meta = None
-                    mmp_meta = mmp.extract(meta)
-                    if mmp_meta:
-                        #print('mmp_meta: %s' % mmp_meta)
-                        meta.update(mmp_meta)
-                    
-                if scan_with_exif:
-                    #print('[*] Scanning %s with EXIF' % meta['filename'])
-                    Emp_meta = None
-                    Emp_meta = Emp.extract(meta)
-                    if Emp_meta:
-                        #print('Emp_meta: %s' % Emp_meta)
-                        meta.update(Emp_meta)
-
-            for k,v in mpp.process(meta).items():
-                meta[k] = v
             results.append(meta)
 
         if len(results) > 0:
             result_q.put(results)
 
-    logger.debug('worker exiting')
+    print('worker exiting')
 
 def main():
     parser = argparse.ArgumentParser(description=__description__)
@@ -209,11 +153,18 @@ def main():
 
     args = parser.parse_args()
 
+    logger = logging.getLogger('main')
     if args.debug:
         log_level = logging.DEBUG
     else:
         log_level = logging.INFO
-    logger = get_logger(log_level)
+
+    console_logger = logging.StreamHandler()
+    console_logger.setLevel(log_level)
+    formatter = logging.Formatter('%(asctime)s [%(levelname)s]: %(message)s')
+    console_logger.setFormatter(formatter)
+    logger.addHandler(console_logger)
+
     logger.debug('logging at %s' % ll2str[log_level])
     logger.debug('num_workers: %s' % args.num_workers)
 

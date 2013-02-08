@@ -10,7 +10,7 @@ from fileindexer.indexer.exif_meta_parser import ExifMetadataParser, exif_mimes
 class MetadataParser():
     def __init__(self):
         self.__fmp = FileMetadataParser()
-        self.__hmp = HachoirMetadataParser(None)
+        self.__hmp = HachoirMetadataParser()
         self.__emp = EnzymeMetadataParser()
         self.__mmp = MutagenMetadataParser()
         self.__xmp = ExifMetadataParser()
@@ -29,9 +29,9 @@ class MetadataParser():
             emp_meta = self.__emp.extract({'full_path': full_path})
             if emp_meta:
                 meta.update(emp_meta)
-            else:
+            elif meta['mime'] in hachoir_mapper.keys():
                 hmp_meta = None
-                hmp_meta = self.__hmp.extract({'full_path': full_path}, 0.5,  hachoir_mapper[meta['mime']])
+                hmp_meta = self.__hmp.extract(full_path, 0.5,  hachoir_mapper[meta['mime']])
                 if hmp_meta:
                     meta.update(hmp_meta)
 
@@ -40,19 +40,19 @@ class MetadataParser():
             mmp_meta = self.__mmp.extract({'full_path': full_path})
             if mmp_meta:
                 meta.update(mmp_meta)
-            else:
+            elif meta['mime'] in hachoir_mapper.keys():
                 hmp_meta = None
-                hmp_meta = self.__hmp.extract({'full_path': full_path}, 0.5,  hachoir_mapper[meta['mime']])
+                hmp_meta = self.__hmp.extract(full_path, 0.5,  hachoir_mapper[meta['mime']])
                 if hmp_meta:
                     meta.update(hmp_meta)
 
         elif meta['mime'] in exif_mimes:
             xmp_meta = None
             xmp_meta = self.__xmp.extract({'full_path': full_path})
-            if mmp_meta:
+            if xmp_meta:
                 meta.update(xmp_meta)
-            else:
+            elif meta['mime'] in hachoir_mapper.keys():
                 hmp_meta = None
-                hmp_meta = self.__hmp.extract({'full_path': full_path}, 0.5,  hachoir_mapper[meta['mime']])
+                hmp_meta = self.__hmp.extract(full_path, 0.5,  hachoir_mapper[meta['mime']])
                 if hmp_meta:
                     meta.update(hmp_meta)
