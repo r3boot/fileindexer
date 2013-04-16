@@ -1,6 +1,5 @@
 import os
-import sys
-
+import time
 
 import hachoir_core.cmd_line
 import hachoir_core.error
@@ -9,11 +8,7 @@ import hachoir_core.stream
 import hachoir_metadata
 import hachoir_parser
 
-sys.path.append('/people/r3boot/fileindexer')
-
 from fileindexer.indexer.safe_unicode import safe_unicode
-
-scan_dir = '/export/movies'
 
 hachoir_mapper = {
     'application/bzip2': 'bzip2',
@@ -204,6 +199,17 @@ hachoir_mapper = {
 class HachoirMetadataParser:
     _ignored_tags = [
         'MIME type',
+        'Copyright',
+        'Number of colors',
+        'File type',
+        'File size',
+        'File name',
+        'File attributes',
+        'Nb page',
+        'Camera focal',
+        'Camera exposure',
+        'Camera aperture',
+        'Version',
     ]
     _remapped_tags = {
         'Duration': 'duration',
@@ -214,11 +220,15 @@ class HachoirMetadataParser:
         'Frame rate': 'framerate',
         'Bit rate': 'bitrate',
         'Bits/pixel': 'bits_per_pixel',
+        'Bits/sample': 'bits_per_sample',
         'Sample rate': 'samplerate',
         'Comment': 'comment',
         'Endianness': 'endianness',
+        'Camera model': 'camera.model',
+        'Camera manufacturer': 'camera.manufacturer',
         'Compression rate': 'compression.rate',
         'Compression': 'compression',
+        'Creation date': 'date',
         'Channel': 'channel',
         'Language': 'language',
         'Title': 'title',
@@ -226,6 +236,9 @@ class HachoirMetadataParser:
         'Artist': 'artist',
         'Album': 'album',
         'Producer': 'producer',
+        'Pixel format': 'format',
+        'Format version': 'format.version',
+        'City': 'city',
         'Common': '',
         'Video': 'video',
         'Video stream': 'video',
@@ -276,6 +289,10 @@ class HachoirMetadataParser:
 
     _channel_fields = [
         'channel'
+    ]
+
+    _datetimefields = [
+        'date',
     ]
 
     def __init__(self):
@@ -379,6 +396,12 @@ class HachoirMetadataParser:
 
         return channels
 
+    def parse_date(self, v):
+        try:
+            return time.mktime(time.strptime(v, '%Y-%m-%d %H:%M:%S'))
+        except:
+            return v
+
     def extract(self, fname, quality, decoder):
         """this code comes from processFile in hachoir-metadata"""
         real_filename = None
@@ -416,7 +439,6 @@ class HachoirMetadataParser:
             print(err)
             return False
         if not results:
-            print('No metadata found for %s' % fname)
             return False
 
         # Convert metadata to dictionary

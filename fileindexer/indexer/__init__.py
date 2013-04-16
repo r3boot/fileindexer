@@ -24,35 +24,26 @@ class MetadataParser():
         else:
             return {}
 
+        xtra_meta = {}
+
+        xtra_meta = self.__fmp.extract({'full_path': full_path})
+        if xtra_meta:
+            for k,v in xtra_meta.items():
+                meta[k] = v
+
         if meta['mime'] in enzyme_mimes:
-            emp_meta = None
-            emp_meta = self.__emp.extract({'full_path': full_path})
-            if emp_meta:
-                meta.update(emp_meta)
-            elif meta['mime'] in hachoir_mapper.keys():
-                hmp_meta = None
-                hmp_meta = self.__hmp.extract(full_path, 0.5,  hachoir_mapper[meta['mime']])
-                if hmp_meta:
-                    meta.update(hmp_meta)
+            xtra_meta = self.__emp.extract({'full_path': full_path})
 
         elif meta['mime'] in mutagen_mimes:
-            mmp_meta = None
-            mmp_meta = self.__mmp.extract({'full_path': full_path})
-            if mmp_meta:
-                meta.update(mmp_meta)
-            elif meta['mime'] in hachoir_mapper.keys():
-                hmp_meta = None
-                hmp_meta = self.__hmp.extract(full_path, 0.5,  hachoir_mapper[meta['mime']])
-                if hmp_meta:
-                    meta.update(hmp_meta)
+            xtra_meta = self.__mmp.extract({'full_path': full_path})
 
         elif meta['mime'] in exif_mimes:
-            xmp_meta = None
-            xmp_meta = self.__xmp.extract({'full_path': full_path})
-            if xmp_meta:
-                meta.update(xmp_meta)
-            elif meta['mime'] in hachoir_mapper.keys():
-                hmp_meta = None
-                hmp_meta = self.__hmp.extract(full_path, 0.5,  hachoir_mapper[meta['mime']])
-                if hmp_meta:
-                    meta.update(hmp_meta)
+            xtra_meta = self.__xmp.extract({'full_path': full_path})
+
+        if not xtra_meta and meta['mime'] in hachoir_mapper.keys():
+            xtra_meta = self.__hmp.extract(full_path, 0.5,  hachoir_mapper[meta['mime']])
+
+        if xtra_meta:
+            meta.update(xtra_meta)
+
+        return meta

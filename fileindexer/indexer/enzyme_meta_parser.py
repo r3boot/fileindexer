@@ -43,7 +43,7 @@ enzyme_mimes = [
 ]
 
 class EnzymeMetadataParser:
-    _ignored_tags = ['delay', 'mime', 'codec_private',]
+    _ignored_tags = ['delay', 'mime', 'codec_private', 'default', 'enabled', 'id', 'pos']
 
     _remapped_tags = {
         'type': 'release.container',
@@ -79,7 +79,7 @@ class EnzymeMetadataParser:
         for k,v in dict(raw_meta).items():
             if v:
                 if k in ['audio', 'video', 'chapters', 'subtitles']:
-                    j = 1
+                    j = 0
                     for i in v:
                         tmp = dict(i)
                         for k_tmp, v_tmp in tmp.items():

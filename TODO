@@ -8,8 +8,7 @@
 - Call rate limiting per source
 
 == Indexer ==
-* Create exif parser
-* Create video parser
+* Finalize current setup
 * Create document parser
 * Create archive parser
 * Find more interesting things to index

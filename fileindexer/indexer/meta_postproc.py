@@ -450,10 +450,11 @@ class MetadataPostProcessor:
 
         meta['filetype'] = os.path.splitext(meta['filename'])[1][1:]
 
-        if meta.has_key('mime'):
-            meta.update(self.parse_filetype(meta['filename'], meta['mime']))
-        else:
-            meta.update(self.parse_filetype(meta['filename'], meta['filetype']))
+        if not meta['is_dir']:
+            if meta.has_key('mime'):
+                meta.update(self.parse_filetype(meta['filename'], meta['mime']))
+            else:
+                meta.update(self.parse_filetype(meta['filename'], meta['filetype']))
 
         keys = meta.keys()
         if not meta['is_dir'] and meta['is_video'] and 'width' in keys and 'height' in keys:

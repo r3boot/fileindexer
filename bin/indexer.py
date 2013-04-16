@@ -11,8 +11,6 @@ import stat
 import sys
 import time
 
-import pprint
-
 sys.path.append('/people/r3boot/fileindexer')
 
 from fileindexer.indexer import MetadataParser
@@ -117,7 +115,6 @@ def indexer_worker(worker_id, work_q, result_q, log_level):
                 if mp_meta:
                     meta.update(mp_meta)
 
-            #pprint.pprint(meta)
             processed_meta = mpp.process(meta)
             processed_meta.update(meta)
             meta = processed_meta
@@ -165,15 +162,15 @@ def main():
     console_logger.setFormatter(formatter)
     logger.addHandler(console_logger)
 
-    logger.debug('logging at %s' % ll2str[log_level])
-    logger.debug('num_workers: %s' % args.num_workers)
+    print('logging at %s' % ll2str[log_level])
+    print('num_workers: %s' % args.num_workers)
 
     ## Setup multiprocessing
     num_workers = int(args.num_workers)
     work_q = multiprocessing.Queue()
     result_q = multiprocessing.Queue()
 
-    logger.debug('Spawning workers')
+    print('Spawning workers')
     procs = {}
     for i in xrange(num_workers):
         p = multiprocessing.Process(
@@ -183,18 +180,18 @@ def main():
         procs[i] = p
         p.start()
 
-    logger.debug('Seeding work queue')
+    print('Seeding work queue')
     work_q.put(args.path[0])
     time.sleep(1.0)
 
-    logger.debug('Gathering and sorting metadata')
+    print('Gathering and sorting metadata')
     all_meta = []
     empty_count = 0
     max_empty_count = 25
 
     while True:
         if empty_count > max_empty_count:
-            logger.debug('Queue is empty')
+            print('Queue is empty')
             break
 
         result = None
@@ -229,15 +226,15 @@ def main():
         work_q.put('!DIE!')
     time.sleep(0.2)
 
-    logger.debug('Cleaning up leftover workers')
+    print('Cleaning up leftover workers')
     for k in procs.keys():
         p = procs[k]
         if p.is_alive():
-            logger.debug('Terminating worker %s' % k)
+            print('Terminating worker %s' % k)
             p.terminate()
             p.join()
 
-    logger.debug('Writing metadata')
+    print('Writing metadata')
     fd = open('%s/00METADATA' % args.path[0], "w")
     fd.write('# fileindexer v=0.1\n')
     prefix_length = len(args.path[0])+1
