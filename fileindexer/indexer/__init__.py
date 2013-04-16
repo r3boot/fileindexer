@@ -16,11 +16,13 @@ class MetadataParser():
         self.__xmp = ExifMetadataParser()
 
     def extract(self, full_path):
-        meta = {}
+        meta = {
+            'file': {}
+        }
         types = None
         types = mimetypes.guess_type(full_path)
         if types and types[0] != None:
-            meta['mime'] = types[0]
+            meta['file']['mime'] = types[0]
         else:
             return {}
 

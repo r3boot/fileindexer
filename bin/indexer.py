@@ -16,6 +16,7 @@ sys.path.append('/people/r3boot/fileindexer')
 from fileindexer.indexer import MetadataParser
 from fileindexer.indexer.safe_unicode import safe_unicode
 from fileindexer.indexer.meta_postproc import MetadataPostProcessor
+from fileindexer.backend.elasticsearch_index import category_types
 
 __description__ = 'File Indexer'
 
@@ -77,16 +78,16 @@ def indexer_worker(worker_id, work_q, result_q, log_level):
                 continue
 
             meta = None
-            meta = {}
-            meta['filename'] = found
+            meta = {
+                'category': None,
+                'file': {},
+                'url': None,
+            }
+            meta['file']['name'] = found
 
             full_path = None
             full_path = os.path.join(path, found)
-            meta['full_path'] = full_path
-
-            if os.path.islink(full_path):
-                print('(worker %s) Skipping symlink %s' % (worker_id, full_path))
-                continue
+            meta['file']['path'] = full_path
 
             st = None
             try:
@@ -96,24 +97,28 @@ def indexer_worker(worker_id, work_q, result_q, log_level):
                 print(e)
                 continue
 
-            meta['is_dir'] = stat.S_ISDIR(st.st_mode)
-            if meta['is_dir']:
+            if stat.S_ISLNK(st.st_mode):
+                print('(worker %s) Skipping symlink %s' % (worker_id, full_path))
+                continue
+
+            if stat.S_ISDIR(st.st_mode):
+                meta['category'] = category_types['DIR']
                 work_q.put(full_path)
+                continue
 
-            meta['checksum'] = hashlib.md5('%s %s' % (st.st_ctime, st.st_size)).hexdigest()
+            meta['file']['checksum'] = hashlib.md5('%s %s' % (st.st_ctime, st.st_size)).hexdigest()
 
-            meta['mode'] = st.st_mode
-            meta['uid'] = st.st_uid
-            meta['gid'] = st.st_gid
-            meta['size'] = st.st_size
-            meta['atime'] = st.st_atime
-            meta['mtime'] = st.st_mtime
-            meta['ctime'] = st.st_ctime
+            meta['file']['mode'] = st.st_mode
+            meta['file']['uid'] = st.st_uid
+            meta['file']['gid'] = st.st_gid
+            meta['file']['size'] = st.st_size
+            meta['file']['atime'] = st.st_atime
+            meta['file']['mtime'] = st.st_mtime
+            meta['file']['ctime'] = st.st_ctime
 
-            if not meta['is_dir']:
-                mp_meta = mp.extract(full_path)
-                if mp_meta:
-                    meta.update(mp_meta)
+            mp_meta = mp.extract(full_path)
+            if mp_meta:
+                meta.update(mp_meta)
 
             processed_meta = mpp.process(meta)
             processed_meta.update(meta)

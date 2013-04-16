@@ -14,6 +14,7 @@ enzyme_mimes = [
     'video/vnd-rn-realvideo',
     'video/x-pn-realvideo',
     'video/x-pn-realvideo-plugin',
+    'video/x-msvideo',
     'application/futuresplash',
     'application/x-shockwave-flash',
     'application/x-shockwave-flash2-preview',

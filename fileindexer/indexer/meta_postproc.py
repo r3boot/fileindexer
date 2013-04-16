@@ -290,6 +290,9 @@ class MetadataPostProcessor:
         'tif_gz'
     ]
 
+    es_mapping = {
+    }
+
     def parse_filetype(self, fname, v):
         meta = {}
         meta['is_text'] = False
