@@ -16,7 +16,7 @@ sys.path.append('/people/r3boot/fileindexer')
 from fileindexer.indexer import MetadataParser
 from fileindexer.indexer.safe_unicode import safe_unicode
 from fileindexer.indexer.meta_postproc import MetadataPostProcessor
-from fileindexer.backend.elasticsearch_index import category_types
+from fileindexer.backends.elasticsearch_index import category_types
 
 __description__ = 'File Indexer'
 

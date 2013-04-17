@@ -131,7 +131,7 @@
 							"type":  "boolean",
 						},
 					},
-					"type": "object",
+					"type": "nested",
 				},
 				"category": {
 					"index": "analyzed",
@@ -434,7 +434,7 @@
 							"index": "analyzed",
 							"boost": 1.0,
 							"store": "yes",
-							"type":  "integer",
+							"type":  "float",
 						},
 						"hd": {
 							"index": "analyzed",
@@ -458,6 +458,12 @@
 							"index": "analyzed",
 							"boost": 1.0,
 							"store": "yes",
+							"type":  "float",
+						},
+						"stream_id": {
+							"index": "analyzed",
+							"boost": 1.0,
+							"store": "yes",
 							"type":  "integer",
 						},
 						"title": {
@@ -478,7 +484,7 @@
 							"store": "yes",
 							"type":  "integer",
 						},
-						"type": "object",
+						"type": "nested",
 					},
 					
 				},

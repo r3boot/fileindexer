@@ -43,6 +43,8 @@ class FileMetadataParser:
     ]
 
     _tag_categories = {
+        'country':      'release',
+        'date':         'release',
         'discno':       'release',
         'edition':      'release',
         'episode':      'episode',
@@ -76,6 +78,7 @@ class FileMetadataParser:
             'release': {},
             'video':   {},
         }
+        full_path = safe_unicode(full_path)
         release_dir = os.path.basename(os.path.dirname(full_path))
         match = self._re_release_dir.search(release_dir)
         if match:
@@ -101,7 +104,9 @@ class FileMetadataParser:
             return None
 
         default_cat = None
-        if raw_meta['type'] in ['movie', 'episode']:
+        if raw_meta['type'] in ['movie', 'episode', 'moviesubtitle']:
+            default_cat = 'video'
+        elif raw_meta.has_key('episodeNumber'):
             default_cat = 'video'
         elif raw_meta.has_key('mimetype'):
             if raw_meta['mimetype'] in enzyme_mimes:
@@ -110,17 +115,19 @@ class FileMetadataParser:
                 default_cat = 'audio'
         else:
             print('UNKNOWN DEFAULT CAT: %s' % full_path)
+            pprint.pprint(raw_meta)
 
         for k,v in raw_meta.items():
             if k in self._ignored_tags:
                 continue
             if k in self._tag_remapper.keys():
                 k = self._tag_remapper[k]
-            print("K: %s; V: %s; T: %s" % (k, v, raw_meta['type']))
+            dstring = "K: %s; V: %s; T: %s" % (k, v, raw_meta['type'])
 
             if k in ['language', 'subtitleLanguage']:
                 v = self.parse_language(v)
                 if not default_cat:
+                    print(dstring)
                     print('NO DEFAULT CATEGORY')
                     continue
                 meta[default_cat][k] = v
@@ -129,6 +136,7 @@ class FileMetadataParser:
 
             elif k in self._guess_categories:
                 if not default_cat:
+                    print(dstring)
                     print('NO DEFAULT CATEGORY')
                     continue
                 meta[default_cat][k] = v
@@ -138,13 +146,14 @@ class FileMetadataParser:
                     cat = self._tag_categories[k]
                 except KeyError:
                     if not default_cat:
+                        print(dstring)
                         print('NO DEFAULT CATEGORY')
                         continue
                     cat = default_cat
 
                 meta[cat][k] = v
             else:
-                #print("K: %s; V: %s; T: %s" % (k, v, raw_meta['type']))
+                print(dstring)
                 print('UNKNOWN KEY: %s' % k)
                 continue
 
@@ -177,7 +186,7 @@ class FileMetadataParser:
             return meta
 
 if __name__ == '__main__':
-    dirs = ['/export/series']
+    dirs = ['/export/movies']
 
     fmp = FileMetadataParser()
     for d in dirs:

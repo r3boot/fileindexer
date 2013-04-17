@@ -9,11 +9,14 @@
 
 == Indexer ==
 * Finalize current setup
+  - Rework all indexers to datastructure
+* datastructure validation
 * Create document parser
 * Create archive parser
 * Find more interesting things to index
 
 == Crawler ==
+* Finalize datastructure
 * Setup some kind of scheduling system
 * Couple with webinterface and allow users to add urls
 

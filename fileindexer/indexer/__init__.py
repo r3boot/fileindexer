@@ -30,8 +30,7 @@ class MetadataParser():
 
         xtra_meta = self.__fmp.extract({'full_path': full_path})
         if xtra_meta:
-            for k,v in xtra_meta.items():
-                meta[k] = v
+            meta.update(xtra_meta)
 
         if meta['mime'] in enzyme_mimes:
             xtra_meta = self.__emp.extract({'full_path': full_path})
