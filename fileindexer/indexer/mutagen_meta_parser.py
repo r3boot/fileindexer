@@ -7,6 +7,8 @@ import re
 import sys
 import time
 
+import pprint
+
 import mutagen
 import mutagen.apev2
 import mutagen.asf
@@ -24,6 +26,8 @@ import mutagen.oggvorbis
 import mutagen.optimfrog
 import mutagen.trueaudio
 import mutagen.wavpack
+
+sys.path.append('/people/r3boot/fileindexer')
 
 from fileindexer.indexer.safe_unicode import safe_unicode
 
@@ -68,126 +72,178 @@ class AudioMetaParser:
             return meta
 
 class MutagenMetadataParser:
-    _valid_tags = [
-        'accuraterip.crc',
-        'accuraterip.id',
-        'album',
-        'artist',
-        'artist.band',
-        'artist.orig',
-        'artists',
+    _ignored_keys = [
+        'APIC',
+        'USLT',
+        'TXXX',
+        'WXXX',
+        'PRIV',
+        'UFID',
+        'MCDI',
+        'GEOB',
+        'PCNT',
+        'POPM',
+        'TFLT',
+        'TIT3',
+        'TPE2',
+        'TKEY',
+        'TOLY',
+        'TOWN',
+        'TOPE',
+        'TRSN',
+        'TSOA',
+        'TSOT',
+        'WCOM',
+        'unknown0',
+        'WOAF',
+        'WOAR',
+        'WOAS',
+        'WPUB',
+        'asin',
+        'buycdurl',
+        'cdtoc',
+        'TDTG',
+        'h2_',
+        'musicbrainz_nonalbum',
+        'performer',
+        'related',
+        'rip',
+        'rip date',
+        'retail date',
+        'script',
+        'setnumber',
+        'settotal',
+        'url',
+        'venue',
+        'www',
+        'musicbrainz_',
+        'accuraterip',
+        'encodedby',
+        'replaygain_',
+        'related',
+        'titlesort',
+        'rip',
+        'rip date',
+        'discid',
+        'musicip_',
+        'codinghistory',
+        'encoding',
+        'transcoded',
+        'TOFN',
+        'orig_filename',
+        'producer',
+        'engineer',
+        'remixed by',
+        'track_modified_by',
+        'remixer',
+        'info',
+        'version',
+        'encodedon',
+        'TDON',
+        'releaser2',
+        'logfile',
+        'itunes_cddb_1',
+        'dd mm yyyy',
+        'pwn',
+        'TCMP',
+        'USLT',
+        'TXXX:Album Artist',
+        'TDRC',
+        'recording_time',
+        'albumartistsort',
+        'artistsort',
+        'rating',
+        'limited edition',
+        'albumsort',
+        'origtime',
+        'TPE4',
+        'TDEN',
+        'original logfile',
+        'LINK',
+        'mediafoundationversion',
+        'wm/provider',
+        'TSOA',
+        'WORS',
+        'tool version',
+        'disc name',
+        'tool name',
+        'album artist',
+        'albumartist',
+        'band',
+        'origartist',
+        'originalartist',
+        'taggedon',
+        'totaldiscs',
+        'track_band',
+        'track_lead_performer',
+        'track_performer',
+        'discogs_release_id',
+        'replaygain_track_peak',
+        'discogs_release_id',
+        'discogs_release_month',
+        'replaygain_album_gain',
+        'replaygain_track_gain',
+        'gracenote',
         'barcode',
-        'comment',
         'compilation',
-        'composer',
-        'copyright',
-        'description',
-        'disc',
-        'disc.total',
-        'duration',
-        'encoder',
-        'ensemble',
-        'genre',
-        'gracenote.extdata',
-        'gracenote.fileid',
-        'language',
-        'medium',
-        'musicbrainz.album.id',
-        'musicbrainz.artist.id',
-        'musicbrainz.track.id',
-        'release.catalognr',
-        'release.country',
-        'release.date',
-        'release.isrc',
-        'release.label',
-        'release.medium',
-        'release.status',
-        'release.type',
-        'releaser',
-        'set.nr',
-        'set.total',
-        'style',
-        'title',
-        'track.bpm',
-        'track.nr',
-        'track.total'
     ]
 
-    _ignored_tags_start = ['APIC', 'USLT', 'TXXX', 'WXXX', 'PRIV', 'UFID', 'MCDI', 'GEOB', 'PCNT', 'POPM', 'TFLT', 'TIT3', 'TKEY', 'TOLY', 'TOWN', 'TRSN',' TSOA', 'TSOT', 'WCOM', 'unknown0', 'WOAF', 'WOAR', 'WOAS', 'WPUB', 'asin', 'buycdurl', 'cdtoc', 'TDTG', 'h2_', 'musicbrainz_nonalbum', 'performer', 'related', 'rip', 'rip date', 'retail date', 'script', 'setnumber', 'settotal', 'url', 'venue', 'www', 'musicbrainz_albumartist', 'musicbrainz_albumartistsortname', 'musicbrainz_albumstatus', 'musicbrainz_albumtype', 'musicbrainz_nonalbum', 'musicbrainz_sortname', 'musicbrainz_variousartists', 'musicbrainz_discid', 'accurateriptotal', 'accurateripresult', 'accurateripoffset', 'accurateripdiscid', 'accurateripcountwithoffset', 'accurateripcountalloffsets', 'accurateripcount', 'encodedby', 'replaygain_album_gain', 'replaygain_album_peak', 'replaygain_reference_loudness', 'replaygain_track_gain', 'replaygain_track_peak', 'discogs_artist_id', 'discogs_artist_link', 'discogs_label_link', 'discogs_original_track_number', 'discogs_release_month', 'discogs_released', 'related', 'titlesort', 'rip', 'rip date', 'discid', 'musicip_puid', 'discogs_release_id', 'codinghistory', 'encoding', 'transcoded', 'TOFN', 'orig_filename', 'producer', 'engineer', 'remixed by', 'track_modified_by', 'remixer', 'info', 'version', 'encodedon', 'TDON', 'releaser2', 'logfile', 'itunes_cddb_1', 'dd mm yyyy', 'pwn', 'TCMP', 'USLT', 'TXXX:Album Artist', 'TDRC', 'recording_time', 'albumartistsort', 'artistsort', 'rating', 'limited edition', 'albumsort', 'origtime', 'TPE4', 'TDEN', 'original logfile', 'LINK', 'mediafoundationversion', 'wm/provider', 'TSOA', 'WORS', 'tool version', 'disc name', 'tool name']
-
-    _remapped_tags = {
-        'accurateripcrc':                   'accuraterip.crc',
-        'accurateripid':                    'accuraterip.id',
-        'album artist':                     'artists',
-        'albumartist':                      'artists',
-        'band':                             'artist.band',
-        'bpm':                              'track.bpm',
-        'catalog':                          'release.catalognr',
-        'catalognr':                        'release.catalognr',
-        'catalognumber':                    'release.catalognr',
-        'cat#':                             'release.catalognr',
-        'catalog#':                         'release.catalognr',
-        'catalogue #':                      'release.catalognr',
-        'country':                          'release.country',
-        'date':                             'release.date',
-        'discnumber':                       'disc',
-        'discogs_catalog':                  'release.catalognr',
-        'discogs_country':                  'release.country',
-        'discogs_label':                    'release.label',
-        'disctotal':                        'disc.total',
+    _key_remapper = {
+        'catalog':                          'catalogno',
+        'catalognr':                        'catalogno',
+        'catalognumber':                    'catalogno',
+        'cat#':                             'catalogno',
+        'catalog#':                         'catalogno',
+        'catalogue #':                      'catalogno',
+        'discogs_catalog':                  'catalogno',
+        'discogs_country':                  'country',
+        'discogs_label':                    'label',
+        'discnumber':                       'setno',
+        'disctotal':                        'settot',
         'encoded-by':                       'encoder',
         'encoded by':                       'encoder',
         'encodedby':                        'encoder',
-        'format':                           'release.medium',
-        'gracenoteextdata':                 'gracenote.extdata',
-        'gracenotefileid':                  'gracenote.fileid',
-        'isrc':                             'release.isrc',
-        'label':                            'release.label',
-        'labelno':                          'release.catalognr',
-        'media':                            'release.medium',
-        'musicbrainz_albumartistid':        'musicbrainz.artist.id',
-        'musicbrainz_albumid':              'musicbrainz.album.id',
-        'musicbrainz_artistid':             'musicbrainz.artist.id',
-        'musicbrainz_trackid':              'musicbrainz.track.id',
+        'format':                           'medium',
+        'isrc':                             'isrc',
+        'label':                            'label',
+        'style':                            'genre',
+        'labelno':                          'catalogno',
+        'media':                            'medium',
         'notes':                            'encoder',
-        'organization':                     'release.label',
-        'origartist':                       'artist.orig',
-        'origdate':                         'release.date',
-        'originalartist':                   'artist.orig',
-        'originator':                       'release.label',
-        'origreference':                    'release.catalognr',
-        'publisher':                        'release.label',
-        'release type':                     'release.type',
-        'releasecountry':                   'release.country',
-        'releasedon':                       'release.date',
-        'releasestatus':                    'release.status',
-        'releasetype':                      'release.type',
-        'releaseyear':                      'release.date',
-        'source':                           'release.medium',
-        'sourcemedia':                      'release.medium',
-        'taggedon':                         'tagged.date',
+        'organization':                     'label',
+        'origdate':                         'date',
+        'originator':                       'label',
+        'origreference':                    'catalogno',
+        'publisher':                        'label',
+        'release type':                     'type',
+        'releasecountry':                   'country',
+        'releasedon':                       'date',
+        'releasestatus':                    'status',
+        'releasetype':                      'type',
+        'releaseyear':                      'date',
+        'source':                           'medium',
+        'sourcemedia':                      'medium',
         'timereference':                    'duration',
-        'totaldiscs':                       'disc.total',
-        'totaltracks':                      'track.total',
-        'track':                            'track.nr',
-        'track_band':                       'artist.band',
-        'track_lead_performer':             'artist',
-        'track_performer':                  'artist',
-        'tracknumber':                      'track.nr',
-        'tracktotal':                       'track.total',
-        'type':                             'release.type',
-        'upc':                              'release.catalognr',
+        'totaldiscs':                       'settot',
+        'totaltracks':                      'tracktot',
+        'track':                            'trackno',
+        'tracknumber':                      'trackno',
+        'tracktotal':                       'tracktot',
+        'upc':                              'catalogno',
+        'discogs_artist_link':              'artist',
+        'discogs_label_link':               'label',
+        'discogs_released':                 'date',
+        'discogs_original_track_number':    'trackno',
         'version':                          'release.version',
-        'year':                             'release.date',
+        'year':                             'date',
         'TPE1':                             'artist',
-        'TPE2':                             'artist.band',
         'TPE3':                             'artist',
         'TIT2':                             'title',
         'TALB':                             'title',
-        'TBPM':                             'track.bpm',
+        'TBPM':                             'bpm',
         'TCON':                             'genre',
-        'TPUB':                             'release.label',
-        'TRCK':                             'track.nr',
+        'TPUB':                             'label',
+        'TRCK':                             'trackno',
         'TCOM':                             'composer',
         'COMM':                             'comment',
         'TENC':                             'encoder',
@@ -196,16 +252,29 @@ class MutagenMetadataParser:
         'WCOP':                             'copyright',
         'TCOP':                             'copyright',
         'TSOP':                             'artist',
-        'TDRL':                             'release.date',
-        'TOPE':                             'artist.orig',
+        'TDRL':                             'date',
         'TIT1':                             'genre',
-        'TDOR':                             'release.date',
+        'TDOR':                             'date',
         'TOAL':                             'title',
-        'TSRC':                             'release.isrc',
+        'TSRC':                             'isrc',
         'TEXT':                             'comment',
-        'TPOS':                             'set.nr',
-        'TMED':                             'release.medium',
+        'TPOS':                             'setno',
+        'TMED':                             'medium',
         'TLEN':                             'duration',
+    }
+
+    _key_categories = {
+        'catalogno':    'release',
+        'country':      'release',
+        'date':         'release',
+        'label':        'release',
+        'language':     'release',
+        'encoder':      'release',
+        'medium':       'release',
+        'isrc':         'release',
+        'type':         'release',
+        'status':       'release',
+        'copyright':    'release',
     }
 
     _mediums = {
@@ -294,15 +363,36 @@ class MutagenMetadataParser:
         'MIX': 'mixtape',
     }
 
-    _string_fields = ['accuraterip.crc', 'accuraterip.id', 'album', 'artist', 'artist.band', 'artist.orig', 'artists', 'barcode', 'comment', 'composer', 'copyright', 'description', 'encoder', 'ensemble', 'genre', 'gracenote.extdata', 'gracenote.fileid', 'language', 'musicbrainz.album.id', 'musicbrainz.artist.id', 'musicbrainz.track.id', 'release.catalognr', 'release.country', 'release.isrc', 'release.label', 'releaser', 'release.status', 'release.type', 'style', 'title']
+    _string_fields = [
+        'album',
+        'artist',
+        'comment',
+        'composer',
+        'copyright',
+        'description',
+        'encoder',
+        'ensemble',
+        'genre',
+        'language',
+        'catalogno',
+        'country',
+        'isrc',
+        'label',
+        'status',
+        'type',
+        'style',
+        'title'
+        ]
 
-    _float_fields = ['compilation', 'disc', 'disc.total', 'track.bpm', 'track.total']
+    _int_fields = ['trackno', 'tracktot', 'setno', 'settot']
 
-    _datetime_fields = ['release.date']
+    _float_fields = ['bpm']
 
-    _track_fields = ['track.nr', 'set.nr']
+    _datetime_fields = ['date']
 
-    _medium_fields = ['release.medium']
+    _track_fields = ['trackno', 'setno']
+
+    _medium_fields = ['medium']
 
     _duration_fields = ['duration']
 
@@ -312,8 +402,7 @@ class MutagenMetadataParser:
 
     _re_datetime_1 = re.compile('^([12][0-9]{3})-([0-9]{2})-([0-9]{2})$')
     _re_datetime_2 = re.compile('^([12][0-9]{3})$')
-
-    unknown_tags = []
+    _re_datetime_3 = re.compile('^([0-9]{2}) ([A-Za-z]{3}) ([12][0-9]{3})$')
 
     def __init__(self):
         self.amp = AudioMetaParser()
@@ -325,10 +414,8 @@ class MutagenMetadataParser:
 
         for item in value[4:][1:][:-1].split(','):
             item = item.strip()
-            (t, v) = item.split('=')
-            if t == 'text':
-                return ast.literal_eval(v)[0]
-
+            if item.startswith('text='):
+                return item[6:len(item)-1]
         return value
 
     def parse_track_field(self, v):
@@ -338,10 +425,10 @@ class MutagenMetadataParser:
             t = str(v).split('/')
             if not t[0].isdigit() or not t[1].isdigit():
                 return v
-            meta['nr'] = self.parse_float_field(t[0])
-            meta['total'] = self.parse_float_field(t[1])
+            meta['trackno'] = self.parse_int_field(t[0])
+            meta['tracktot'] = self.parse_int_field(t[1])
         else:
-            meta['nr'] = self.parse_float_field(v)
+            meta['trackno'] = self.parse_int_field(v)
         return meta
 
     def parse_medium_field(self, v):
@@ -349,10 +436,11 @@ class MutagenMetadataParser:
         if v in self._mediums_remapper:
             v = self._mediums_remapper[v]
         try:
-            return self._mediums[v]
+            medium = safe_unicode(self._mediums[v])
+            if medium:
+                return medium
         except KeyError:
             print('Medium %s not found' % v)
-            return None
 
     def parse_duration_field(self, v):
         try:
@@ -363,18 +451,10 @@ class MutagenMetadataParser:
         except TypeError:
             return None
 
-    def valid_tag(self, tag):
-        for k in self._valid_tags:
-            if k == tag:
-                return True
-
     def parse_string_field(self, value):
-        try:
-            return value.encode('UTF-8')
-        except UnicodeError:
-            return str(value)
-        except AttributeError:
-            return str(value)
+        value = self.parse_encoded_field(value)
+        value = value.strip()
+        return safe_unicode(value)
 
     def parse_float_field(self, value):
         if not str(value).isdigit():
@@ -382,14 +462,21 @@ class MutagenMetadataParser:
             for i in value:
                 if i in self._numbers:
                     tmp_value += i
-            if len(tmp_value) == 0:
-                return None
+            if len(tmp_value) == 0 and len(value) == 1:
+                tmp_value = ord(value.lower()) - 96
+            if not tmp_value:
+                return
+
             value = tmp_value
 
         try:
             return float(value)
         except:
             return float(str(value))
+
+    def parse_int_field(self, value):
+        result = self.parse_float_field(value)
+        return int(round(result))
 
     def parse_datetime_field(self, value):
         if not isinstance(value, str):
@@ -398,100 +485,156 @@ class MutagenMetadataParser:
         match = self._re_datetime_1.search(value)
         if match:
             time_struct = time.strptime(value, '%Y-%M-%d')
+
         match = self._re_datetime_2.search(value)
         if match:
             time_struct = time.strptime(value, '%Y')
-        
+
+        match = self._re_datetime_3.search(value)
+        if match:
+            time_struct = time.strptime(value, '%d %b %Y')
+
         if time_struct:
             return datetime.datetime.fromtimestamp(time.mktime(time_struct)).isoformat()
         else:
             return value
 
-    def extract(self, meta):
-        raw_meta = self.amp.extract(meta['full_path'])
+    def parse_value(self, key, value):
+        for q in ['\'', '"']:
+            if value.startswith(q):
+                value = value[1:]
+            elif value.endswith(q):
+                value = value[:len(value)-1]
+
+        for q in ['\x00']:
+            if value.endswith(q):
+                value = value.replace(q, '')
+
+        if key in self._string_fields:
+            value = self.parse_string_field(value)
+            if not value:
+                return
+
+        elif key in self._int_fields:
+            value = self.parse_int_field(value)
+
+        elif key in self._float_fields:
+            value = self.parse_float_field(value)
+
+        elif key in self._datetime_fields:
+            value = self.parse_datetime_field(value)
+
+        elif key in self._track_fields:
+            result = self.parse_track_field(value)
+            if not isinstance(result, dict):
+                print('WARNING: %s is not a dict' % value)
+                return
+
+            for k, v in result.items():
+                if category == 'audio':
+                    meta[category][0][k] = v
+                else:
+                    meta[category][k] = v
+            return
+
+        elif key in self._medium_fields:
+            value = self.parse_medium_field(value)
+            if not value:
+                print('FAILED TO PARSE MEDIUM FIELD: %s' % value)
+                return
+
+        elif key in self._duration_fields:
+            value = self.parse_duration_field(value)
+            if not value:
+                print('FAILED TO PARSE MEDIUM FIELD: %s' % value)
+                return
+
+        else:
+            print('UNKNOWN FIELD: %s %s' % (key, value))
+            return
+
+        return value
+
+    def extract(self, full_path):
+        raw_meta = self.amp.extract(full_path)
         if not raw_meta:
             return {}
 
-        meta = {}
-        self.unknown_tags = []
-        for k,v in raw_meta.items():
-            k = k.strip()
-            if ':' in k:
-                k = k.split(':')[0]
+        print("==> %s" % full_path)
+        meta = {
+            'audio': [{}]
+        }
+
+        for key, value in raw_meta.items():
+            #print('K: %s; V; %s' % (key, value))
+
+            key = key.strip()
+
+            if ':' in key:
+                key = key.split(':')[0]
+
+            if not isinstance(key, str):
+                key = str(key)
+            key = safe_unicode(key)
+
+            if not isinstance(value, list):
+                tmp = [value]
+                value = tmp
 
             for q in ['\'', '"']:
-                if k.startswith(q):
-                    k = k[1:]
-                elif k.endswith(q):
-                    k = k[len(k)-1]
+                if key.startswith(q):
+                    key = key[1:]
+                elif key.endswith(q):
+                    key = key[len(k)-1]
 
-            if isinstance(v, list):
-                v = v[0]
-
-            ignore_tag = False
-            for t in self._ignored_tags_start:
-                if k.startswith(t):
-                    ignore_tag = True
+            ignore_key = False
+            for t in self._ignored_keys:
+                if key.startswith(t):
+                    ignore_key = True
                     break
-            if ignore_tag:
+            if ignore_key:
                 continue
 
-            tag = None
-            value = None
-            if k in self._remapped_tags.keys():
-                tag = self._remapped_tags[k]
-                value = v
+            #print('K: %s; V; %s' % (key, value))
+            if key in self._key_remapper.keys():
+                key = self._key_remapper[key]
+
+            if key in self._key_categories.keys():
+                category = self._key_categories[key]
+                if not self._key_categories[key] in meta.keys():
+                    meta[self._key_categories[key]] = {}
             else:
-                tag = k
-                value = v
+                category = 'audio'
 
-            if not self.valid_tag(tag):
-                print('UNKNOWN TAG: %s' % k)
-                return {}
+            for item in value:
+                if not isinstance(item, str):
+                    item = repr(item)
+                result = self.parse_value(key, item)
+                if not result:
+                    continue
 
-            value = safe_unicode(value)
-            if not value:
-                print('CANNOT CONVERT TO UNICODE: %s' % value)
-                return {}
+                if category == 'audio':
+                    if key == 'genre':
+                        if key not in meta[category][0].keys():
+                            meta[category][0][key] = []
+                        meta[category][0][key].append({"name": result})
+                    else:
+                        meta[category][0][key] = result
+                else:
+                    meta[category][key] = result
 
-            for q in ['\'', '"']:
-                if value.startswith(q):
-                    value = value[1:]
-                elif value.endswith(q):
-                    value = value[:len(value)-1]
-
-            for q in ['\x00']:
-                if value.endswith(q):
-                    value = value.replace(q, '')
-
-            if tag in self._string_fields:
-                meta[tag] = self.parse_string_field(value)
-
-            elif tag in self._float_fields:
-                meta[tag] = self.parse_float_field(value)
-
-            elif tag in self._datetime_fields:
-                meta[tag] = self.parse_datetime_field(value)
-
-            elif tag in self._track_fields:
-                result = self.parse_track_field(value)
-                if not isinstance(result, dict):
-                    return 0
-                base = tag.split('.')[0]
-                for k,v in result.items():
-                    meta['%s.%s' % (base, k)] = v
-
-            elif tag in self._medium_fields:
-                result = self.parse_medium_field(value)
-                if result:
-                    meta[tag] = result
-
-            elif tag in self._duration_fields:
-                result = self.parse_duration_field(value)
-                if result:
-                    meta[tag] = result
-            else:
-                print('UNKNOWN FIELD: %s %s' % (tag, value))
-                sys.exit(1)
+        if meta.has_key('release') and len(meta['release']) == 0:
+            del(meta['release'])
 
         return meta
+
+if __name__ == '__main__':
+    dirs = ['/export/music/mp3/by-artist']
+
+    mmp = MutagenMetadataParser()
+    for d in dirs:
+        for (path, dirs, files) in os.walk(d):
+            for f in files:
+                r = mmp.extract('%s/%s' % (path, f))
+                if r:
+                    pprint.pprint(r)

@@ -64,9 +64,6 @@ class EnzymeMetadataParser:
 
     _ignored_tags = ['delay', 'mime', 'codec_private', 'default', 'enabled', 'id', 'pos']
 
-    _tag_remapper = {
-    }
-
     def _add_to_subcat(self, meta, default_cat, stream_meta):
         all_items = []
         if len(meta[default_cat]) == 0:
@@ -160,8 +157,9 @@ class EnzymeMetadataParser:
                         if s_key in self._ignored_tags:
                             continue
 
-                        if s_key in self._tag_remapper.keys():
-                            s_key = self._tag_remapper[s_key]
+                        if s_key in self._key_remapper.keys():
+                            s_key = self._key_remapper[s_key]
+
                         stream_meta[s_key] = s_value
                     meta = self._add_to_subcat(meta, default_cat, stream_meta)
                     id += 1
@@ -177,7 +175,7 @@ class EnzymeMetadataParser:
         return meta
 
 if __name__ == '__main__':
-    dirs = ['/export/series']
+    dirs = ['/export/movies']
 
     emp = EnzymeMetadataParser()
     for d in dirs:
