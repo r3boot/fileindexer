@@ -1,6 +1,13 @@
 import datetime
 import time
+import os
+import pprint
+import sys
 
+sys.path.append('/people/r3boot/fileindexer')
+
+
+from fileindexer.indexer.safe_unicode import safe_unicode
 from fileindexer.external.exif import EXIF
 
 exif_mimes = [
@@ -77,106 +84,163 @@ class ExifMetadataParser:
         'Camera focal',
         'Camera exposure',
         'Camera aperture',
+        'EXIF ComponentsConfiguration',
+        'EXIF ApertureValue',
+        'EXIF Contrast',
+        'EXIF DigitalZoomRatio',
+        'EXIF ExposureBiasValue',
+        'EXIF ExposureMode',
+        'EXIF ExposureTime',
+        'EXIF FileSource',
+        'EXIF FlashPixVersion',
+        'EXIF Flash',
+        'EXIF FNumber',
+        'EXIF ExifVersion',
+        'EXIF FocalLength',
+        'EXIF ISOSpeedRatings'
+        'EXIF LightSource',
+        'EXIF MaxApertureValue',
+        'EXIF MeteringMode',
+        'EXIF Saturation',
+        'EXIF SceneCaptureType',
+        'EXIF SceneType',
+        'EXIF SensingMethod',
+        'EXIF Sharpness',
+        'EXIF ShutterSpeedValue',
+        'EXIF SubjectDistance',
+        'EXIF SubjectDistanceRange',
+        'EXIF WhiteBalance',
+        'Image YCbCrPositioning',
+        'Image Padding',
+        'EXIF Gamma',
+        'Image YCbCrCoefficients',
+        'EXIF SubSecTime',
+        'EXIF Padding',
+        'Image PrimaryChromaticities',
+        'Image XPAuthor',
+        'EXIF ISOSpeedRatings',
+        'Image BitsPerSample',
+        'Image SamplesPerPixel',
+        'EXIF LightSource',
+        'GPS GPSVersionID',
+        'Image GPSInfo',
+        'Image PhotometricInterpretation',
+        'Image XPTitle',
+        'Image XPKeywords',
+        'Image XPSubject',
+        'Image XPComment',
+        'Image PlanarConfiguration',
+        'Image DocumentName',
+        'Image StripByteCounts',
+        'Image RowsPerStrip',
+        'Image StripOffsets',
+        'Image FillOrder',
+        'EXIF DeviceSettingDescription',
+        'Image DeviceSettingDescription',
+        'Image ReferenceBlackWhite',
+        'Image WhiteBalance',
+        'Image SceneCaptureType',
+        'Image ExposureMode',
+        'Image CustomRendered',
+        'Image Rating',
+        'EXIF BrightnessValue',
+        'Image MakerNote',
+        'GPS GPSTimeStamp',
+        'EXIF ExposureIndex',
+        'Image PrintIM',
+        'EXIF JPEGInterchangeFormat',
+        'EXIF JPEGInterchangeFormatLength',
+        'Image Sharpness',
+        'Image Saturation',
+        'Image SubjectDistanceRange',
+        'Image FocalLengthIn35mmFilm',
+        'Image GainControl',
+        'Image Contrast',
+        'Image DigitalZoomRatio',
+        'EXIF PrintIM',
+        'Image PageName',
+        'EXIF OECF',
+        'Image Gamma',
+        'Image InterColorProfile',
+        'Image IPTC/NAA',
     ]
 
     _remapped_tags = {
-        'EXIF ApertureValue': 'img.apeture',
-        'EXIF BrightnessValue': 'img.brightness',
-        'EXIF ColorSpace': 'img.colorspace',
-        'EXIF Contrast': 'img.contrast',
-        'EXIF ComponentsConfiguration': 'img.components_config',
-        'EXIF DateTimeDigitized': 'img.date.digitized',
-        'EXIF DateTimeOriginal': 'img.date.original',
-        'EXIF DigitalZoomRatio': 'img.zoom_ratio',
-        'EXIF ExifVersion': 'img.exif_version',
-        'EXIF ExposureBiasValue': 'img.exposure.bias',
-        'EXIF ExposureMode': 'img.exposure.mode',
-        'EXIF ExposureProgram': 'img.exposure.program',
-        'EXIF ExposureTime': 'img.exposure.time',
-        'EXIF FileSource': 'img.file_source',
-        'EXIF Flash': 'img.flash',
-        'EXIF FlashPixVersion': 'img.flashpix_version',
-        'EXIF FNumber': 'img.fnumber',
-        'EXIF FocalLength': 'img.focal.length',
-        'EXIF FocalLengthIn35mmFilm': 'img.focal.length.35mm',
-        'EXIF ExifImageLength': 'img.height',
-        'EXIF ExifImageWidth': 'img.width',
-        'EXIF ISOSpeedRatings': 'img.iso_speed_rating',
-        'EXIF LightSource': 'img.light_source',
-        'EXIF MaxApertureValue': 'img.apeture.max',
-        'EXIF MeteringMode': 'img.metering_mode',
-        'EXIF Saturation': 'img.saturation',
-        'EXIF SceneCaptureType': 'img.scene.capture_type',
-        'EXIF SceneType': 'img.scene.type',
-        'EXIF SensingMethod': 'img.sensing_mode',
-        'EXIF Sharpness': 'img.sharpness',
-        'EXIF ShutterSpeedValue': 'img.shutter.speed',
-        'EXIF SubjectDistance': 'img.subject.distance',
-        'EXIF SubjectDistanceRange': 'img.subject.distance.range',
-        'EXIF UserComment': 'comment',
-        'EXIF WhiteBalance': 'img.whitebalance',
-        'Image DateTime': 'img.date',
-        'Image ImageDescription': 'description',
-        'Image Make': 'img.device_vendor',
-        'Image Model': 'img.device_model',
-        'Image Orientation': 'img.orientation',
-        'Image YCbCrPositioning': 'img.positioning',
-        'Image Software': 'img.software',
+        'Image Artist':                     'artist',
+        'EXIF ColorSpace':                  'colorspace',
+        'EXIF DateTimeDigitized':           'date',
+        'EXIF DateTimeOriginal':            'date',
+        'EXIF DateTime':                    'date',
+        'EXIF ExifVersion':                 'exif_version',
+        'EXIF ExifImageLength':             'height',
+        'EXIF ExifImageWidth':              'width',
+        'EXIF UserComment':                 'comment',
+        'EXIF ExposureProgram':             'orientation',
+        'Image DateTime':                   'date',
+        'Image ImageDescription':           'description',
+        'Image Make':                       'hwvendor',
+        'Image Compression':                'compressor',
+        'Image Model':                      'hwmodel',
+        'Image Orientation':                'orientation',
+        'Image Software':                   'software',
+        'Image ExifImageLength':            'height',
+        'Image ExifImageWidth':             'width',
+        'Image ImageLength':                'height',
+        'Image ImageWidth':                 'width',
+        'Image Copyright':                  'copyright',
+        'GPS GPSDate':                      'date',
+        'GPS GPSLatitudeRef':               'latref',
+        'GPS GPSLatitude':                  'lat',
+        'GPS GPSLongitudeRef':              'lonref',
+        'GPS GPSLongitude':                 'lon',
+    }
+
+    _key_categories = {
+        'date':             'release',
+        'exif_version':     'release',
+        'hwvendor':         'release',
+        'hwmodel':          'release',
+        'software':         'release',
+        'copyright':        'release',
     }
 
     _string_fields = [
+        'artist',
         'comment',
         'description',
-        'img.apeture',
-        'img.apeture.max',
-        'img.contrast',
-        'img.device_model',
-        'img.device_vendor',
-        'img.exposure.mode',
-        'img.exposure.program',
-        'img.exposure.time',
-        'img.file_source',
-        'img.fnumber',
-        'img.focal.length',
-        'img.light_source',
-        'img.metering_mode',
-        'img.saturation',
-        'img.scene.capture_type',
-        'img.scene.type',
-        'img.sensing_mode',
-        'img.sharpness',
-        'img.shutter.speed',
-        'img.subject.distance',
-        'img.whitebalance',
-        'img.software',
+        'hwmodel',
+        'hwendor',
+        'software',
+        'lat',
+        'latref',
+        'lon',
+        'lonref',
     ]
 
     _int_fields = [
-        'img.exif_version',
-        'img.exposure.bias',
-        'img.focal.length.35mm',
-        'img.iso_speed_rating',
-        'img.subject.distance.range',
-        'img.zoom_ratio',
+        'exif_version',
+        'width',
+        'height',
     ]
 
     _bool_fields = [
-        'img.flash',
     ]
 
     _datetime_fields = [
-        'img.date',
-        'img.date.digitized',
+        'date',
     ]
 
     _time_formats = [
         '%Y:%m:%d %H:%M:%S',
-        '%d %b %Y %H:%M:%S'
+        '%d %b %Y %H:%M:%S',
+        '%Y:%m:%d'
     ]
 
-    def extract(self, raw_meta):
-        meta = {}
-        filename = raw_meta['full_path']
+    def extract(self, full_path):
+        meta = {
+            'image': {}
+        }
+        filename = full_path
         try:
             fd = open(filename, 'rb')
         except IOError, e:
@@ -188,7 +252,9 @@ class ExifMetadataParser:
             raw_meta = EXIF.process_file(fd, details=True, strict=False, debug=False)
         except MemoryError:
             print('Out-Of-Memory during EXIF.process_file')
+            fd.close()
             return {}
+        fd.close()
 
         for k,v in raw_meta.items():
             ignore_tag = False
@@ -204,15 +270,28 @@ class ExifMetadataParser:
                 continue
             k = self._remapped_tags[k]
 
+            k = safe_unicode(k.strip())
+            if not k:
+                continue
             try:
-                v = str(v)
+                k = k.split(' ')[1]
+            except IndexError:
+                pass
+
+            try:
+                v = safe_unicode(str(v).strip())
+                if not v:
+                    continue
             except TypeError:
-                print('CANNOT STRINGIFY VALUE: %s (%s)' % (k, repr(v)))
+                #print('CANNOT STRINGIFY VALUE: %s (%s)' % (k, repr(v)))
                 continue
 
-            if len(v) == 0:
-                print('EMPTY VALUE FOR %s' % (k))
-                continue
+            if k in self._key_categories.keys():
+                if self._key_categories[k] not in meta.keys():
+                    meta[self._key_categories[k]] = {}
+                category = self._key_categories[k]
+            else:
+                category = 'image'
 
             if k in self._string_fields:
                 pass
@@ -238,5 +317,22 @@ class ExifMetadataParser:
                     v = datetime.datetime.fromtimestamp(time.mktime(time_struct)).isoformat()
                 else:
                     print('NO FMT: %s' % v)
-            meta[k] = v
+
+            meta[category][k] = v
+
+        for category in meta.keys():
+            if len(meta[category]) == 0:
+                del(meta[category])
+
         return meta
+
+if __name__ == '__main__':
+    dirs = ['/export']
+
+    emp = ExifMetadataParser()
+    for d in dirs:
+        for (path, dirs, files) in os.walk(d):
+            for f in files:
+                r = emp.extract('%s/%s' % (path, f))
+                if r:
+                    pprint.pprint(r)

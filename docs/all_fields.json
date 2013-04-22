@@ -246,11 +246,29 @@
 					"enabled": true,
 					"path":    "full",
 					"properties": {
+						"apeture": {
+							"index": "analyzed",
+							"boost": 1.0,
+							"store": "yes",
+							"type":  "float",
+						},
+						"brightness": {
+							"index": "analyzed",
+							"boost": 1.0,
+							"store": "yes",
+							"type":  "integer",
+						},
 						"colorspace": {
 							"index": "analyzed",
 							"boost": 1.0,
 							"store": "yes",
 							"type":  "string",
+						},
+						"contrast": {
+							"index": "analyzed",
+							"boost": 1.0,
+							"store": "yes",
+							"type":  "float",
 						},
 						"comment": {
 							"index": "analyzed",
