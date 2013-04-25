@@ -7,7 +7,7 @@ import sys
 sys.path.append('/people/r3boot/fileindexer')
 
 
-from fileindexer.indexer.safe_unicode import safe_unicode
+from fileindexer.indexer.parser_utils import *
 from fileindexer.external.exif import EXIF
 
 exif_mimes = [

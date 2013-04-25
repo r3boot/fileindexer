@@ -1,380 +1,40 @@
 import os
 
+import pprint
+
+from fileindexer.constants import category_types, mimes, extensions
+
 class MetadataPostProcessor:
-    _text_mimes = [
-        'application/msword',
-        'application/pdf',
-        'application/postscript',
-        'application/vnd.oasis.opendocument.text',
-        'application/x-info',
-        'application/x-texinfo',
-        'application/xml',
-        'chemical/x-chemdraw'
-    ]
+    def parse_filetype(self, fname, hint):
+        result = 'unknown'
 
-    _archive_mimes = [
-        'application/mac-binhex40',
-        'application/rar',
-        'application/x-7z-compressed',
-        'application/x-apple-diskimage',
-        'application/x-bittorrent',
-        'application/x-stuffit',
-        'application/x-tar',
-        'application/x-wingz',
-        'application/zip'
-    ]
+        for name, mimetypes in mimes.items():
+            if hint in mimetypes:
+                return category_types[name]
 
-    _iso_mimes = ['application/x-iso9660-image']
+        if hint.startswith('text/'):
+            return category_types['text']
+        elif hint.startswith('audio/'):
+            return category_types['audio']
+        elif hint.startswith('video/'):
+            return category_types['video']
+        elif hint.startswith('image/'):
+            result = category_types['picture']
 
-    _code_mimes = [
-        'application/x-tex-pk',
-        'application/x-troff',
-        'application/x-wais-source',
-        'chemical/x-molconn-Z',
-        'chemical/x-vamas-iso14976',
-        'text/css',
-        'text/x-c++src',
-        'text/x-chdr',
-        'text/x-csrc',
-        'text/x-diff',
-        'text/x-dsrc',
-        'text/x-pascal',
-        'text/x-perl',
-        'text/x-python',
-        'text/x-sh'
-    ]
+        for name, extlist in extensions.items():
+            if hint in extlist:
+                return category_types[name]
 
-    _binary_mimes = [
-        'application/octet-stream',
-        'application/x-font',
-        'application/x-ns-proxy-autoconfig'
-    ]
-
-    _checksum_mimes = [
-        'application/pgp-keys',
-        'application/pgp-signature',
-        'application/x-md5',
-        'application/x-sha1'
-    ]
-
-    _playlist_mimes = ['application/x-mpegURL']
-
-    _executable_mimes = ['application/x-msdos-program']
-
-    _text_exts = [
-        '1st',
-        '2nd',
-        'AUX',
-        'NFO',
-        'README',
-        'accurip',
-        'aux',
-        'changes',
-        'cisco',
-        'cnf',
-        'compilation_problems',
-        'conf',
-        'contrib',
-        'decw$book',
-        'delivery',
-        'diz',
-        'dos',
-        'examples',
-        'guide',
-        'help',
-        'hlp',
-        'inf',
-        'ini',
-        'int',
-        'log',
-        'message',
-        'mms',
-        'msg',
-        'nfo',
-        'nfo~',
-        'package_name',
-        'pc',
-        'projects',
-        'sub',
-        'text',
-        'title_page',
-        'tpu',
-        'tpu$section',
-        'url',
-        'vest_me',
-        'xml_stuff'
-    ]
-
-    _binary_exts = [
-        'IMA',
-        'XB',
-        'XM',
-        'card',
-        'db',
-        'e',
-        'fdl',
-        'idx',
-        'ipf_obj',
-        'mar',
-        'mem',
-        'olb',
-        'smc'
-    ]
-
-    _iso_exts = ['CUE', 'IMG', 'cue', 'mdf', 'mds']
-
-    _audio_exts = ['ac3', 'ass', 'mp3-missing']
-
-    _video_exts = ['BUP', 'IFO', 'M4V', 'VOB', 'f4v', 'img', 'mp7', 'ogm', 'vob']
-
-    _checksum_exts = ['pem', 'sha256', 'sha512']
-
-    _executable_exts = [
-        'alpha_exe',
-        'alpha_map',
-        'alpha_obj',
-        'alpha_olb',
-        'axp_exe',
-        'com_orig',
-        'exe_alp_v72',
-        'exe_alp_v721',
-        'exe_alp_v732',
-        'exe_alp_v82',
-        'exe_alpha',
-        'exe_axp',
-        'exe_axp_v62',
-        'exe_axp_v72',
-        'exe_axp_v721',
-        'exe_axp_v731',
-        'exe_axp_v732',
-        'exe_axp_v82',
-        'exe_i64_v82',
-        'exe_i64_v821',
-        'exe_v62',
-        'exe_v71',
-        'exe_v72',
-        'exe_v721',
-        'exe_v73',
-        'exe_v732',
-        'exe_vax',
-        'i64_exe',
-        'ia64_exe',
-        'ia64_obj',
-        'int_img',
-        'int_img_axp',
-        'ipf_exe',
-        'ipf_map',
-        'ipf_olb',
-        'itanium_exe',
-        'itanium_obj',
-        'obj_alpha',
-        'obj_ia64',
-        'obj_vax',
-        'olb_alpha',
-        'vax_exe',
-        'vax_map',
-        'vax_obj',
-        'vax_olb',
-        'vax_vaxc_exe'
-    ]
-
-    _code_exts = [
-        '1_preformatted',
-        'ac',
-        'ad',
-        'adb',
-        'ads',
-        'am',
-        'asm',
-        'awk',
-        'b32',
-        'bas',
-        'blc',
-        'bor',
-        'build',
-        'c_orig',
-        'cld',
-        'clp',
-        'cob',
-        'com_source',
-        'cpl',
-        'dcl',
-        'def',
-        'dj2',
-        'djg',
-        'dsm',
-        'dsp',
-        'dsw',
-        'emx',
-        'filter',
-        'for',
-        'gcc',
-        'gnm',
-        'gpr',
-        'guess',
-        'h_example',
-        'h_in',
-        'h_orig',
-        'h_txt',
-        'h_vms',
-        'hlb',
-        'icc',
-        'icc',
-        'in',
-        'in_h',
-        'inc',
-        'iss',
-        'jnl',
-        'l',
-        'lis',
-        'm4',
-        'macro',
-        'macros',
-        'main',
-        'mak',
-        'mbu',
-        'mcl',
-        'miff',
-        'mlb',
-        'msc',
-        'nsi',
-        'nt',
-        'odl',
-        'oldstyle',
-        'opt',
-        'opts',
-        'os2',
-        'pam',
-        'postinst',
-        'pov',
-        'prj',
-        'pup',
-        'tab',
-        'tab_c',
-        'tab_h',
-        'tbl',
-        'tc',
-        'tlb',
-        'vc',
-        'version',
-        'vms_bash',
-        'wavelet',
-        'wnt',
-        'xs',
-        'y',
-        'yy_c',
-        'yy_c2',
-        'yy_cc'
-    ]
-
-    _archive_exts = [
-        '1_gz',
-        'BCK',
-        'ace',
-        'bck',
-        'bz2',
-        'cckd',
-        'depot',
-        'gz',
-        'lsm',
-        'nzb',
-        'par2',
-        'pcsi',
-        'pcsi$compressed',
-        'qpg',
-        'srr',
-        'srs',
-        'tar-bz2',
-        'tar-gz',
-        'tif-gz',
-        'tif_gz'
-    ]
-
-    es_mapping = {
-    }
-
-    def parse_filetype(self, fname, v):
-        meta = {}
-        meta['is_text'] = False
-        meta['is_iso'] = False
-        meta['is_archive'] = False
-        meta['is_binary'] = False
-        meta['is_code'] = False
-        meta['is_picture'] = False
-        meta['is_audio'] = False
-        meta['is_video'] = False
-        meta['is_checksum'] = False
-        meta['is_playlist'] = False
-        meta['is_executable'] = False
-
-        ## Begin with mimetype based parsing, and finish off with extension
-        ## based parsing
-        if v in self._text_mimes:
-            meta['is_text'] = True
-        elif v in self._archive_mimes:
-            meta['is_archive'] = True
-        elif v in self._iso_mimes:
-            meta['is_iso'] = True
-        elif v in self._code_mimes:
-            meta['is_code'] = True
-            meta['is_text'] = True
-        elif v in self._binary_mimes:
-            meta['is_binary'] = True
-        elif v in self._checksum_mimes:
-            meta['is_checksum'] = True
-        elif v in self._playlist_mimes:
-            meta['is_playlist'] = True
-        elif v in self._executable_mimes:
-            meta['is_executable'] = True
-            meta['is_binary'] = True
-        elif v.startswith('text/'):
-            meta['is_text'] = True
-        elif v.startswith('audio/'):
-            meta['is_audio'] = True
-        elif v.startswith('video/'):
-            meta['is_video'] = True
-        elif v.startswith('image/'):
-            meta['is_picture'] = True
-
-        elif v in self._text_exts:
-            meta['is_text'] = True
-        elif v in self._binary_exts:
-            meta['is_binary'] = True
-        elif v in self._iso_exts:
-            meta['is_iso'] = True
-        elif v in self._audio_exts:
-            meta['is_audio'] = True
-        elif v in self._video_exts:
-            meta['is_video'] = True
-        elif v in self._checksum_exts:
-            meta['is_checksum'] = True
-        elif v in self._executable_exts:
-            meta['is_executable'] = True
-            meta['is_binary'] = True
-        elif v in self._code_exts:
-            meta['is_code'] = True
-            meta['is_text'] = True
-        elif v in self._archive_exts:
-            meta['is_archive'] = True
-        elif v.startswith('r') or v.startswith('s'):
+        if hint.startswith('r') or hint.startswith('s'):
             try:
-                int(v[1:])
-                meta['is_archive'] = True
+                int(hint[1:])
+                return category_types['archive']
             except ValueError:
                 pass
-        elif v.endswith('_wavelet'):
-            meta['is_code'] = True
-            meta['is_text'] = True
-        elif v == '':
-            pass
+        elif hint.endswith('_wavelet'):
+            return category_types['code']
 
-        else:
-            try:
-                int(v)
-                meta['is_binary'] = True
-            except ValueError:
-                pass
-        return meta
+        return result
 
     def parse_length(self, v):
         if isinstance(v, int) or isinstance(v, float):
@@ -449,18 +109,11 @@ class MetadataPostProcessor:
 
         return meta
 
-    def process(self, meta):
-
-        meta['filetype'] = os.path.splitext(meta['filename'])[1][1:]
-
-        if not meta['is_dir']:
-            if meta.has_key('mime'):
-                meta.update(self.parse_filetype(meta['filename'], meta['mime']))
-            else:
-                meta.update(self.parse_filetype(meta['filename'], meta['filetype']))
-
-        keys = meta.keys()
-        if not meta['is_dir'] and meta['is_video'] and 'width' in keys and 'height' in keys:
+    """
+    def parse_video_meta(self, meta):
+        keys = meta['video'].keys()
+        if meta['category'] == category_types['video']:
+            if not 'width' in keys and 'height'
             if meta['width'] <= 720 and meta['height'] <= 480:
                 meta['video_format'] = 'vga'
                 meta['aspect_ratio'] = '4:3'
@@ -481,5 +134,18 @@ class MetadataPostProcessor:
                 meta['video_format'] = '1080p'
                 meta['aspect_ratio'] = '16:9'
                 meta['hd'] = True
+    """
+
+    def process(self, meta):
+
+        meta['file']['type'] = os.path.splitext(meta['file']['name'])[1][1:]
+
+        if meta.has_key('category') and meta['category'] == category_types['dir']:
+            return meta
+
+        if meta['file'].has_key('mime'):
+            meta['category'] = self.parse_filetype(meta['file']['name'], meta['file']['mime'])
+        else:
+            meta['category'] = self.parse_filetype(meta['file']['name'], meta['file']['type'])
 
         return meta

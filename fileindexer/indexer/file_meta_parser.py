@@ -9,7 +9,7 @@ import guessit
 
 sys.path.append('/people/r3boot/fileindexer')
 
-from fileindexer.indexer.safe_unicode import safe_unicode
+from fileindexer.indexer.parser_utils import *
 from fileindexer.indexer.enzyme_meta_parser import enzyme_mimes
 from fileindexer.indexer.mutagen_meta_parser import mutagen_mimes
 from fileindexer.indexer.exif_meta_parser import exif_mimes
@@ -79,6 +79,7 @@ class FileMetadataParser:
             'video':   {},
         }
         full_path = safe_unicode(full_path)
+        meta['file']['name'] = os.path.basename(full_path)
         release_dir = os.path.basename(os.path.dirname(full_path))
         match = self._re_release_dir.search(release_dir)
         if match:

@@ -11,12 +11,15 @@ import stat
 import sys
 import time
 
+import pprint
+
 sys.path.append('/people/r3boot/fileindexer')
 
+from fileindexer.constants import category_types
+
 from fileindexer.indexer import MetadataParser
-from fileindexer.indexer.safe_unicode import safe_unicode
+from fileindexer.indexer.parser_utils import *
 from fileindexer.indexer.meta_postproc import MetadataPostProcessor
-from fileindexer.backends.elasticsearch_index import category_types
 
 __description__ = 'File Indexer'
 
@@ -24,7 +27,7 @@ _d_debug = False
 _d_num_workers = 4
 _d_resume = False
 _d_do_stat = True
-_d_do_hachoir = True
+_d_do_metadata = True
 _d_hachoir_quality = 0.5
 _d_ignore_symlinks = True
 
@@ -41,7 +44,7 @@ def indexer_worker(worker_id, work_q, result_q, log_level):
     mp = MetadataParser()
     mpp = MetadataPostProcessor()
 
-    print("[*] Spawning worker %s" % worker_id)
+    info("Spawning worker %s" % worker_id)
 
     while True:
         path = None
@@ -49,15 +52,15 @@ def indexer_worker(worker_id, work_q, result_q, log_level):
         result_q.put(worker_id+100)
 
         if path == '!DIE!':
-            print('worker %s) Received kill-pill, exiting' % worker_id)
+            warning('(worker %s) Received kill-pill, exiting' % worker_id)
             break
 
-        print('(worker %s) Indexing: %s' % (worker_id, path))
+        info('(worker %s) Indexing: %s' % (worker_id, path))
 
         results = None
         results = []
         if not os.access(path, os.R_OK | os.X_OK):
-            print('[*] (worker %s) Cannot access %s' % (worker_id, path))
+            error('(worker %s) Cannot access %s' % (worker_id, path))
             continue
 
         found = None
@@ -88,25 +91,27 @@ def indexer_worker(worker_id, work_q, result_q, log_level):
             full_path = None
             full_path = os.path.join(path, found)
             meta['file']['path'] = full_path
+            info('working on %s' % full_path)
 
             st = None
             try:
                 st = os.stat(full_path)
-            except OSError, e:
-                print('(worker %s) Cannot stat %s' % (worker_id, full_path))
-                print(e)
+            except OSError, errmsg:
+                error('(worker %s) Cannot stat %s: %s' % (worker_id, full_path, errmsg))
                 continue
 
             if stat.S_ISLNK(st.st_mode):
-                print('(worker %s) Skipping symlink %s' % (worker_id, full_path))
+                warning('(worker %s) Skipping symlink %s' % (worker_id, full_path))
                 continue
 
             if stat.S_ISDIR(st.st_mode):
-                meta['category'] = category_types['DIR']
+                meta['category'] = category_types['dir']
                 work_q.put(full_path)
                 continue
 
-            meta['file']['checksum'] = hashlib.md5('%s %s' % (st.st_ctime, st.st_size)).hexdigest()
+            meta['file']['checksum'] = hashlib.md5(
+                '%s %s' % (st.st_ctime, st.st_size)
+            ).hexdigest()
 
             meta['file']['mode'] = st.st_mode
             meta['file']['uid'] = st.st_uid
@@ -116,15 +121,13 @@ def indexer_worker(worker_id, work_q, result_q, log_level):
             meta['file']['mtime'] = st.st_mtime
             meta['file']['ctime'] = st.st_ctime
 
-            mp_meta = mp.extract(full_path)
-            if mp_meta:
-                meta.update(mp_meta)
-
-            processed_meta = mpp.process(meta)
-            processed_meta.update(meta)
-            meta = processed_meta
+            meta = mp.extract(meta, full_path)
+            info('META2: %s' % meta)
+            meta = mpp.process(meta)
+            info('META3: %s' % meta)
 
             results.append(meta)
+            pprint.pprint(results)
 
         if len(results) > 0:
             result_q.put(results)
@@ -141,17 +144,13 @@ def main():
 
     parser.add_argument('--workers', dest='num_workers', action='store',
         default=_d_num_workers, help='Number of indexer workers')
-    parser.add_argument('--resume', dest='resume', action='store_true',
-        default=_d_resume, help='Continue a previously broken off index run')
 
     parser.add_argument('--disable-stat', dest='do_stat', action='store_false',
         default=_d_do_stat, help='Disable indexing of stat() information')
-    parser.add_argument('--disable-metadata', dest='do_hachoir', action='store_false',
-        default=_d_do_hachoir, help='Disable extraction and indexing of metadata')
+    parser.add_argument('--disable-metadata', dest='do_metadata', action='store_false',
+        default=_d_do_metadata, help='Disable extraction and indexing of metadata')
     parser.add_argument('--enable-symlinks', dest='ignore_symlinks', action='store_true',
         default=_d_ignore_symlinks, help='Follow symlinks')
-    parser.add_argument('--quality', dest='quality', action='store',
-        type=float, default=_d_hachoir_quality, help='Amount of effort used to extract metadata (0.1..1.0)')
 
     args = parser.parse_args()
 

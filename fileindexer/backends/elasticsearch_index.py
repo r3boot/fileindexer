@@ -1,9 +1,7 @@
 
 import pyes
 
-category_types = {
-    'dir': 0,
-}
+from fileindexer.constants import category_types
 
 class ElasticSearchIndex:
     def __init__(self, host='127.0.0.1', port=9200, index_name='fileindexer'):

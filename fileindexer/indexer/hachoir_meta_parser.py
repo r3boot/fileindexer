@@ -1,5 +1,10 @@
+
 import os
 import time
+import re
+import string
+import sys
+import pprint
 
 import hachoir_core.cmd_line
 import hachoir_core.error
@@ -8,7 +13,9 @@ import hachoir_core.stream
 import hachoir_metadata
 import hachoir_parser
 
-from fileindexer.indexer.safe_unicode import safe_unicode
+sys.path.append('/people/r3boot/fileindexer')
+
+from fileindexer.indexer.parser_utils import *
 
 hachoir_mapper = {
     'application/bzip2': 'bzip2',
@@ -197,7 +204,7 @@ hachoir_mapper = {
 }
 
 class HachoirMetadataParser:
-    _ignored_tags = [
+    _ignored_keys = [
         'MIME type',
         'Copyright',
         'Number of colors',
@@ -211,48 +218,45 @@ class HachoirMetadataParser:
         'Camera aperture',
         'Version',
     ]
-    _remapped_tags = {
-        'Duration': 'duration',
-        'Image width': 'width',
-        'Image height': 'height',
-        'Image DPI width': 'width.dpi',
-        'Image DPI height': 'height.dpi',
-        'Frame rate': 'framerate',
-        'Bit rate': 'bitrate',
-        'Bits/pixel': 'bits_per_pixel',
-        'Bits/sample': 'bits_per_sample',
-        'Sample rate': 'samplerate',
-        'Comment': 'comment',
-        'Endianness': 'endianness',
-        'Camera model': 'camera.model',
-        'Camera manufacturer': 'camera.manufacturer',
-        'Compression rate': 'compression.rate',
-        'Compression': 'compression',
-        'Creation date': 'date',
-        'Channel': 'channel',
-        'Language': 'language',
-        'Title': 'title',
-        'Author': 'author',
-        'Artist': 'artist',
-        'Album': 'album',
-        'Producer': 'producer',
-        'Pixel format': 'format',
-        'Format version': 'format.version',
-        'City': 'city',
-        'Common': '',
-        'Video': 'video',
-        'Video stream': 'video',
-        'Video stream #1': 'video',
-        'Video stream #2': 'video',
-        'Video stream #3': 'video',
-        'Audio': 'audio',
-        'Audio stream': 'audio',
-        'Audio stream #1': 'audio',
-        'Audio stream #2': 'audio',
-        'Audio stream #3': 'audio',
-        'Subtitle': 'subtitle',
-        'File': 'file',
-        'Metadata': 'file',
+    _key_remapper = {
+        'Duration':             'duration',
+        'Image width':          'width',
+        'Image height':         'height',
+        'Image DPI width':      'width.dpi',
+        'Image DPI height':     'height.dpi',
+        'Frame rate':           'framerate',
+        'Bit rate':             'bitrate',
+        'Bits/pixel':           'bits_per_pixel',
+        'Bits/sample':          'bits_per_sample',
+        'Sample rate':          'samplerate',
+        'Comment':              'comment',
+        'Endianness':           'endianness',
+        'Camera model':         'hwmodel',
+        'Camera manufacturer':  'hwvendor',
+        'Compression rate':     'compression_rate',
+        'Compression':          'compression',
+        'Creation date':        'date',
+        'Channel':              'channels',
+        'Language':             'language',
+        'Title':                'title',
+        'Author':               'author',
+        'Artist':               'artist',
+        'Album':                'album',
+        'Producer':             'software',
+        'Pixel format':         'format',
+        'Format version':       'format.version',
+        'City':                 'city',
+    }
+
+    _key_categories = {
+        'bitrate':      'release',
+        'comment':      'release',
+        'duration':     'release',
+        'endianess':    'release',
+        'framerate':    'release',
+        'software':     'release',
+        'width':        'release',
+        'height':       'release',
     }
 
     _int_fields = [
@@ -288,7 +292,7 @@ class HachoirMetadataParser:
     ]
 
     _channel_fields = [
-        'channel'
+        'channels'
     ]
 
     _datetimefields = [
@@ -297,6 +301,12 @@ class HachoirMetadataParser:
 
     def __init__(self):
         self.charset = hachoir_core.i18n.getTerminalCharset()
+        self._re_categories = [
+            [re.compile('^Audio stream:'),                 'audio'],
+            [re.compile('^Audio stream #([0-9]{1,2}):$'),   'audio'],
+            [re.compile('^Video stream:$'),                 'video'],
+            [re.compile('^Video stream #([0-9]{1,2}):$'),   'video'],
+        ]
 
     def _parse_number(self, v, type_of_nr='int'):
         result = 0
@@ -402,13 +412,37 @@ class HachoirMetadataParser:
         except:
             return v
 
-    def extract(self, fname, quality, decoder):
+    def parse_category(self, line):
+        has_match = False
+        default_cat = None
+        stream_id = None
+        for item in self._re_categories:
+            [regexp, category] = item
+            match = regexp.search(line)
+            if match:
+                has_match = True
+                if match.group(0).isdigit():
+                    stream_id = int(match.group(0))
+                else:
+                    stream_id = 0
+                default_cat = category
+                break
+
+        if not has_match:
+            #print('UNKNOWN CATEGORY: %s' % line)
+            default_cat = 'unknown'
+
+        return (default_cat, stream_id)
+
+    def extract(self, fname, quality=0.5, decoder=None):
         """this code comes from processFile in hachoir-metadata"""
-        real_filename = None
-        try:
-            filename, real_filename = hachoir_core.cmd_line.unicodeFilename(fname, self.charset), fname
-        except TypeError:
-            real_filename = fname
+        fname = safe_unicode(fname)
+        if not fname:
+            print('UNICODE FAILED: %s' % fname)
+            return {}
+
+        print('==> %s' % fname)
+        filename, real_filename = fname, fname
 
         (f, ext) = os.path.splitext(fname)
         ext = ext.lower()[1:]
@@ -443,27 +477,31 @@ class HachoirMetadataParser:
 
         # Convert metadata to dictionary
         meta = None
-        meta = {}
+        meta = {
+            'unknown': {}
+        }
 
         prefix = ''
+
+        default_cat = None
+        stream_id = None
+
         for line in str(results).split('\n'):
-            if line.startswith('File \"'):
-                prefix = ''
-                continue
-            elif line.startswith('Common'):
-                prefix = 'video.'
-                continue
-            elif line.startswith('Video stream'):
-                prefix = 'video.'
-                continue
-            elif line.startswith('Audio stream'):
-                prefix = 'audio.'
-                continue
-            elif line.startswith('Metadata'):
-                if ext in ['jpg', 'jpeg', 'png']:
-                    prefix = 'img.'
+            line = line.strip()
+            #print('LINE: \'%s\'' % line)
+
+            if line[0] in string.ascii_letters:
+                (default_cat, stream_id) = self.parse_category(line)
+
+                if default_cat not in meta.keys():
+                    if default_cat in ['audio', 'video']:
+                        meta[default_cat] = [{'stream_id': stream_id}]
+                    else:
+                        meta[default_cat] = {}
                 else:
-                    prefix = ''
+                    if default_cat in ['audio', 'video']:
+                        meta[default_cat][stream_id] = {'stream_id': stream_id}
+
                 continue
 
             line = safe_unicode(line)[2:]
@@ -471,45 +509,67 @@ class HachoirMetadataParser:
                 continue
 
             tokens = line.split(': ')
-            tag = tokens[0]
+            key = tokens[0]
             value = ': '.join(tokens[1:])
 
-            if tag in self._ignored_tags:
+            #print("K: %s; V: %s; DC: %s; ID: %s" % (key, value, default_cat, stream_id))
+
+
+            if key in self._ignored_keys:
                 continue
-            elif tag in self._remapped_tags.keys():
-                tag = self._remapped_tags[tag]
 
+            if key in self._key_remapper.keys():
+                key = self._key_remapper[key]
 
-            if tag in self._int_fields:
+            if default_cat is 'unknown' and key in self._key_categories.keys():
+                if not self._key_categories[key] in meta.keys():
+                    meta[self._key_categories[key]] = {}
+                default_cat = self._key_categories[key]
+
+            if key in self._int_fields:
                 value = self.parse_int(value)
 
-            elif tag in self._float_fields:
+            elif key in self._float_fields:
                 value = self.parse_float(value)
 
-            elif tag in self._bitrate_fields:
+            elif key in self._bitrate_fields:
                 bitrate_meta = self.parse_bitrate(value)
                 if not bitrate_meta:
                     continue
-                if 'vbr' in bitrate_meta.keys():
-                    meta.update({prefix + 'vbr': bitrate_meta['vbr']})
+                if 'vbr' in bitrate_meta.keys() and default_cat in ['audio', 'video']:
+                    meta[default_cat][stream_id]['vbr'] = True
                 value = bitrate_meta['bitrate']
 
-            elif tag in self._duration_fields:
+            elif key in self._duration_fields:
                 value = self.parse_duration(value)
 
-            elif tag in self._endianness_fields:
+            elif key in self._endianness_fields:
                 value = self.parse_endianness(value)
 
-            elif tag in self._samplerate_fields:
+            elif key in self._samplerate_fields:
                 value = self.parse_samplerate(value)
 
-            elif tag in self._channel_fields:
+            elif key in self._channel_fields:
                 value = self.parse_channel(value)
-                if value > 1:
-                    meta.update({prefix + 'stereo': True})
-                else:
-                    meta.update({prefix + 'stereo': False})
 
-            meta.update({prefix + tag: value})
+            if default_cat in ['audio', 'video']:
+                meta[default_cat][stream_id][key] = value
+            else:
+                meta[default_cat][key] = value
+
+        for category in ['unknown']:
+            if len(meta[category]) == 0:
+                del(meta[category])
 
         return meta
+
+if __name__ == '__main__':
+    DIRS = ['/export/series']
+
+    HMP = HachoirMetadataParser()
+    for d in DIRS:
+        for (path, dirs, files) in os.walk(d):
+            for f in files:
+                r = HMP.extract('%s/%s' % (path, f))
+                if r:
+                    pprint.pprint(r)
