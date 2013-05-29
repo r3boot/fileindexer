@@ -1,7 +1,12 @@
 import os
 import pprint
+import sys
+
+sys.path.append('/people/r3boot/fileindexer')
 
 import enzyme
+
+from fileindexer.indexer.parser_utils import *
 
 enzyme_mimes = [
     'video/x-matroska',
@@ -64,27 +69,12 @@ class EnzymeMetadataParser:
 
     _ignored_tags = ['delay', 'mime', 'codec_private', 'default', 'enabled', 'id', 'pos']
 
-    def _add_to_subcat(self, meta, default_cat, stream_meta):
-        all_items = []
-        if len(meta[default_cat]) == 0:
-            meta[default_cat] = [stream_meta]
-        else:
-            has_been_updated = False
-            for item in meta[default_cat]:
-                if not item.has_key('stream_id'):
-                    continue
-
-                if item['stream_id'] == stream_meta['stream_id']:
-                    item.update(stream_meta)
-                    has_been_updated = True
-                all_items.append(item)
-
-            if not has_been_updated:
-                all_items.append(stream_meta)
-
-            meta[default_cat] = all_items
-
-        return meta
+    _subcategories = [
+        'audio',
+        'chapters',
+        'subtitles',
+        'video',
+    ]
 
     def _remove_useless(self, cat_meta):
         all_items = []
@@ -99,6 +89,27 @@ class EnzymeMetadataParser:
                 continue
         return all_items
 
+    def remove_empty_values(self, raw_meta):
+        result = {}
+        for key, value in raw_meta.items():
+            if value is None:
+                continue
+            elif key in self._subcategories:
+                subcat_result = []
+                for item in raw_meta[key]:
+                    tmp_item = {}
+                    for subkey, subvalue in item.items():
+                        if subvalue is None:
+                            continue
+                        elif subkey in ['tags']:
+                            continue
+                        tmp_item[subkey] = subvalue
+                    subcat_result.append(tmp_item)
+                result[key] = subcat_result
+            else:
+                result[key] = value
+        return result
+
     def extract(self, full_path):
         meta = {
             'audio':   [],
@@ -110,22 +121,25 @@ class EnzymeMetadataParser:
             raw_meta = None
             raw_meta = enzyme.parse(full_path)
         except enzyme.exceptions.ParseError:
-            print('[E] Failed to parse %s' % full_path)
+            error('Failed to parse %s' % full_path)
             return {}
         except enzyme.exceptions.NoParserError:
-            #print('[E] No parser found for %s' % full_path)
+            error('No parser found for %s' % full_path)
             return {}
-        except ValueError, e:
-            print('[E] Failed to parse %s: %s' % (full_path, e))
+        except ValueError, errmsg:
+            error('Failed to parse %s: %s' % (full_path, errmsg))
             return {}
-        except TypeError, e:
-            print('[E] Failed to parse %s: %s' % (full_path, e))
+        except TypeError, errmsg:
+            error('Failed to parse %s: %s' % (full_path, errmsg))
             return {}
-        except IndexError, e:
-            print('[E] Failed to parse %s: %s' % (full_path, e))
+        except IndexError, errmsg:
+            error('Failed to parse %s: %s' % (full_path, errmsg))
             return {}
 
-        for stream_key, stream_value in dict(raw_meta).items():
+        raw_values = self.remove_empty_values(raw_meta.convert())
+
+        for stream_key, stream_value in raw_values.items():
+
             if not stream_value:
                 continue
 
@@ -146,14 +160,12 @@ class EnzymeMetadataParser:
                 print('UNKNOWN DEFAULT CAT: %s: %s->%s' % (full_path, stream_key, stream_value))
                 continue
 
-            try:
+            if stream_key in self._subcategories:
                 id = 0
+
                 for stream_obj in stream_value:
                     stream_meta = { 'stream_id': id }
-                    stream = dict(stream_obj)
-                    for s_key, s_value in stream.items():
-                        if not s_value:
-                            continue
+                    for s_key, s_value in stream_obj.items():
                         if s_key in self._ignored_tags:
                             continue
 
@@ -161,26 +173,21 @@ class EnzymeMetadataParser:
                             s_key = self._key_remapper[s_key]
 
                         stream_meta[s_key] = s_value
-                    meta = self._add_to_subcat(meta, default_cat, stream_meta)
-                    id += 1
-            except ValueError:
-                meta[default_cat][stream_key] = stream_value.strip()
-            except TypeError:
-                meta[default_cat][stream_key] = stream_value
 
-        for cat in ['audio', 'video']:
-            tmp = self._remove_useless(meta[cat])
-            meta[cat] = tmp
+                    meta[default_cat] = merge_av_meta_dict(meta[default_cat], [stream_meta])
+            else:
+                meta[default_cat][stream_key] = stream_value
 
         return meta
 
 if __name__ == '__main__':
-    dirs = ['/export/movies']
+    dirs = ['/export/series']
 
     emp = EnzymeMetadataParser()
     for d in dirs:
         for (path, dirs, files) in os.walk(d):
             for f in files:
+                print("==> %s/%s" % (path, f))
                 r = emp.extract('%s/%s' % (path, f))
                 if r:
                     pprint.pprint(r)

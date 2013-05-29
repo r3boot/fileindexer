@@ -29,6 +29,14 @@ class MetadataParser():
         self.__mmp = MutagenMetadataParser()
         self.__xmp = ExifMetadataParser()
 
+    def _update(self, meta, xtra_meta):
+        for key, value in xtra_meta.items():
+            if key in ['audio', 'video']:
+                meta[key] = merge_av_meta_dict(meta[key], xtra_meta[key])
+            else:
+                meta[key].update(xtra_meta[key])
+        return meta
+
     def extract(self, meta, full_path):
         """
         Extract metadata from a file
@@ -48,13 +56,15 @@ class MetadataParser():
         else:
             return meta
 
+
         xtra_meta = {}
 
         xtra_meta = self.__fmp.extract(full_path)
         if xtra_meta:
-            meta = merge_meta_dict(meta, xtra_meta)
+            meta = self._update(meta, xtra_meta)
 
         if meta['file']['mime'] in enzyme_mimes:
+            print('emp')
             xtra_meta = self.__emp.extract(full_path)
 
         elif meta['file']['mime'] in mutagen_mimes:
@@ -64,11 +74,12 @@ class MetadataParser():
             xtra_meta = self.__xmp.extract(full_path)
 
         if not xtra_meta and meta['file']['mime'] in hachoir_mapper.keys():
+            print('hmp')
             xtra_meta = self.__hmp.extract(
                 full_path, 0.5, hachoir_mapper[meta['file']['mime']]
             )
 
         if xtra_meta:
-            meta = merge_meta_dict(meta, xtra_meta)
+            meta = self._update(meta, xtra_meta)
 
         return meta

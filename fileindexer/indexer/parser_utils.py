@@ -116,9 +116,12 @@ def get_stream_metadata(stream_list, stream_id):
     Dictionary containing the stream metadata or
     None if no stream is found
     """
+    result = None
     for stream in stream_list:
         if stream['stream_id'] == stream_id:
-            return stream
+            result = stream
+
+    return result
 
 def merge_av_meta_dict(parent, additional):
     """
@@ -134,8 +137,9 @@ def merge_av_meta_dict(parent, additional):
     """
     updated_streams = []
 
-    debug(parent)
-    debug(additional)
+    if parent == []:
+        return additional
+
     parent_ids = [s['stream_id'] for s in parent]
     additional_ids = [s['stream_id'] for s in additional]
 
@@ -157,40 +161,12 @@ def merge_av_meta_dict(parent, additional):
     ## Then, merge the rest of the dictionaries
     for stream_id in set(parent_ids) & set(additional_ids):
         parent_meta = get_stream_metadata(parent, stream_id)
-        additional_meta = get_stream_metadata(additional, stream_id)
-        parent_meta.update(additional_meta)
+        additional_meta = get_stream_metadata(additional, stream_id )
+        try:
+            parent_meta.update(additional_meta)
+        except ValueError, errmsg:
+            error('merge_av_meta_dict: {0}'.format(errmsg))
+            parent_meta = additional_meta
         updated_streams.append(parent_meta)
 
     return updated_streams
-
-def merge_meta_dict(parent, additional):
-    """
-    Update the parent meta dictionary with additional metadata
-
-    * accepts:
-    parent:     Master metadata dictionary
-    additional: Additional metadata dictionary
-
-    * returns:
-    Merged metadata dictionary or
-    Master metadata dictionary on error
-    """
-
-    debug('parent: {0}'.format(parent))
-    debug('additional: {0}'.format(additional))
-
-    for category, data in additional.items():
-        if category in ['audio', 'video']:
-            if category not in parent.keys():
-                parent[category] = data
-                continue
-
-            parent[category] = merge_av_meta_dict(
-                                   parent[category], additional[category]
-                               )
-        else:
-            if not category in parent.keys():
-                parent[category] = {}
-            parent[category].update(data)
-
-    return parent
