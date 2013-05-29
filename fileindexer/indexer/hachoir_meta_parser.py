@@ -408,7 +408,7 @@ class HachoirMetadataParser:
 
     def parse_date(self, v):
         try:
-            return time.mktime(time.strptime(v, '%Y-%m-%d %H:%M:%S'))
+            return time.mktime(time.strptime(v, '%Y-%m-%d %H:%M:%S')).isoformat()
         except:
             return v
 
@@ -441,7 +441,6 @@ class HachoirMetadataParser:
             print('UNICODE FAILED: %s' % fname)
             return {}
 
-        print('==> %s' % fname)
         filename, real_filename = fname, fname
 
         (f, ext) = os.path.splitext(fname)

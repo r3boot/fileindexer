@@ -12,6 +12,8 @@ from fileindexer.indexer.mutagen_meta_parser import MutagenMetadataParser, mutag
 from fileindexer.indexer.exif_meta_parser import ExifMetadataParser, exif_mimes
 from fileindexer.indexer.parser_utils import *
 
+import pprint
+
 class MetadataParser():
     """
     This class wraps around all available parsers, and has functions
@@ -30,11 +32,15 @@ class MetadataParser():
         self.__xmp = ExifMetadataParser()
 
     def _update(self, meta, xtra_meta):
-        for key, value in xtra_meta.items():
-            if key in ['audio', 'video']:
+        for key in xtra_meta.keys():
+            if key not in meta.keys():
+                meta[key] = xtra_meta[key]
+
+            elif key in ['audio', 'video']:
                 meta[key] = merge_av_meta_dict(meta[key], xtra_meta[key])
             else:
                 meta[key].update(xtra_meta[key])
+
         return meta
 
     def extract(self, meta, full_path):
@@ -49,6 +55,7 @@ class MetadataParser():
         Merged metadata dictionary or
         meta on error
         """
+
         types = None
         types = mimetypes.guess_type(full_path)
         if types and types[0] != None:
@@ -64,7 +71,6 @@ class MetadataParser():
             meta = self._update(meta, xtra_meta)
 
         if meta['file']['mime'] in enzyme_mimes:
-            print('emp')
             xtra_meta = self.__emp.extract(full_path)
 
         elif meta['file']['mime'] in mutagen_mimes:
@@ -74,7 +80,6 @@ class MetadataParser():
             xtra_meta = self.__xmp.extract(full_path)
 
         if not xtra_meta and meta['file']['mime'] in hachoir_mapper.keys():
-            print('hmp')
             xtra_meta = self.__hmp.extract(
                 full_path, 0.5, hachoir_mapper[meta['file']['mime']]
             )

@@ -3,6 +3,7 @@ parser_utils.py -- Various utilities for parsing single elements
 """
 
 import sys
+import pprint
 
 __description__ = 'Various utilities used for parsing single elements'
 __author__      = 'Lex van Roon <r3boot@r3blog.nl>'
@@ -25,7 +26,7 @@ def info(message):
     * returns:
     None
     """
-    print('{0} {1}'.format(MSGPREFIX['info'], message))
+    print(u'{0} {1}'.format(MSGPREFIX['info'], message))
 
 def warning(message):
     """
@@ -38,7 +39,7 @@ def warning(message):
     * returns:
     None
     """
-    print('{0} {1}'.format(MSGPREFIX['warning'], message))
+    print(u'{0} {1}'.format(MSGPREFIX['warning'], message))
 
 def error(message):
     """
@@ -51,7 +52,7 @@ def error(message):
     * returns:
     None
     """
-    print('{0} {1}'.format(MSGPREFIX['error'], message))
+    print(u'{0} {1}'.format(MSGPREFIX['error'], message))
 
 def debug(message):
     """
@@ -64,7 +65,10 @@ def debug(message):
     * returns:
     None
     """
-    print('{0} {1}'.format(MSGPREFIX['debug'], message))
+    print(u'{0} {1}'.format(MSGPREFIX['debug'], message))
+
+def ddump(data):
+    pprint.pprint(data)
 
 def safe_unicode(string):
     """
@@ -85,6 +89,9 @@ def safe_unicode(string):
     if not isinstance(string, unicode) and not isinstance(string, str):
         try:
             string = str(string)
+        except UnicodeEncodeError, errmsg:
+            error('safe_unicode: string conversion failed: {0}'.format(errmsg))
+            return None
         except TypeError, errmsg:
             error('safe_unicode: string conversion failed: {0}'.format(errmsg))
             return None
@@ -94,7 +101,7 @@ def safe_unicode(string):
     except TypeError, errmsg:
         error('safe_unicode: unicode conversion failed: {0}'.format(errmsg))
         return None
-    except UnicodeDecodeError:
+    except UnicodeDecodeError, errmsg:
         error('safe_unicode: unicode conversion failed: {0}'.format(errmsg))
         return None
     except:
@@ -137,11 +144,29 @@ def merge_av_meta_dict(parent, additional):
     """
     updated_streams = []
 
+    if not isinstance(parent, list):
+        parent = [parent]
+
     if parent == []:
         return additional
 
-    parent_ids = [s['stream_id'] for s in parent]
-    additional_ids = [s['stream_id'] for s in additional]
+
+    parent_ids = []
+    for item in parent:
+        try:
+            parent_ids.append(item['stream_id'])
+        except KeyError:
+            pass
+
+    additional_ids = []
+    for item in additional:
+        if not isinstance(item, dict):
+            continue
+
+        try:
+            additional_ids.append(item['stream_id'])
+        except KeyError:
+            pass
 
     ## First add all new dictionaries
     for stream_id in set(parent_ids) ^ set(additional_ids):

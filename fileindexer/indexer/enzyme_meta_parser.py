@@ -157,7 +157,7 @@ class EnzymeMetadataParser:
             elif stream_key in self._key_categories.keys():
                 default_cat = self._key_categories[stream_key]
             else:
-                print('UNKNOWN DEFAULT CAT: %s: %s->%s' % (full_path, stream_key, stream_value))
+                print('UNKNOWN DEFAULT CAT: %s->%s' % (stream_key, stream_value))
                 continue
 
             if stream_key in self._subcategories:
@@ -187,7 +187,6 @@ if __name__ == '__main__':
     for d in dirs:
         for (path, dirs, files) in os.walk(d):
             for f in files:
-                print("==> %s/%s" % (path, f))
                 r = emp.extract('%s/%s' % (path, f))
                 if r:
                     pprint.pprint(r)

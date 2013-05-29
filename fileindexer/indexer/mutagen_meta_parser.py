@@ -560,7 +560,6 @@ class MutagenMetadataParser:
         if not raw_meta:
             return {}
 
-        print("==> %s" % full_path)
         meta = {
             'audio': [{}]
         }
@@ -576,6 +575,8 @@ class MutagenMetadataParser:
             if not isinstance(key, str):
                 key = str(key)
             key = safe_unicode(key)
+            if not key:
+                continue
 
             if not isinstance(value, list):
                 tmp = [value]

@@ -68,7 +68,7 @@ class FileMetadataParser:
         return str(value[0])
 
     def parse_year(self, value):
-        return datetime.datetime(int(value), 1, 1, 0, 0, 0)
+        return datetime.datetime(int(value), 1, 1, 0, 0, 0).isoformat()
 
     def extract(self, full_path):
         meta = {
@@ -119,6 +119,13 @@ class FileMetadataParser:
             pprint.pprint(raw_meta)
 
         for k,v in raw_meta.items():
+            k = safe_unicode(k)
+            if not k:
+                continue
+            v = safe_unicode(v)
+            if not v:
+                continue
+
             if k in self._ignored_tags:
                 continue
             if k in self._tag_remapper.keys():

@@ -2,6 +2,7 @@
 
 import Queue
 import argparse
+import datetime
 import hashlib
 import json
 import logging
@@ -89,9 +90,12 @@ def indexer_worker(worker_id, work_q, result_q, log_level):
             meta['file']['name'] = found
 
             full_path = None
-            full_path = os.path.join(path, found)
+            full_path = safe_unicode(os.path.join(path, found))
+            if not full_path:
+                continue
+
             meta['file']['path'] = full_path
-            info('working on %s' % full_path)
+            # info('working on %s' % full_path)
 
             st = None
             try:
@@ -122,12 +126,10 @@ def indexer_worker(worker_id, work_q, result_q, log_level):
             meta['file']['ctime'] = st.st_ctime
 
             meta = mp.extract(meta, full_path)
-            info('META2: %s' % meta)
             meta = mpp.process(meta)
-            info('META3: %s' % meta)
 
             results.append(meta)
-            pprint.pprint(results)
+            #pprint.pprint(results)
 
         if len(results) > 0:
             result_q.put(results)
@@ -222,7 +224,7 @@ def main():
 
     all_paths = {}
     for meta in all_meta:
-        all_paths[meta['full_path']] = meta
+        all_paths[meta['file']['path']] = meta
     all_paths_idx = all_paths.keys()
     all_paths_idx.sort()
 
@@ -248,6 +250,7 @@ def main():
             continue
         meta = all_paths[path]
         path = path[prefix_length:]
+
         try:
             meta = json.dumps(meta)
         except TypeError, e:
