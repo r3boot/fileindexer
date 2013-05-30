@@ -476,7 +476,11 @@ class MutagenMetadataParser:
 
     def parse_int_field(self, value):
         result = self.parse_float_field(value)
-        return int(round(result))
+        try:
+            return int(round(result))
+        except TypeError, errmsg:
+            error('parse_int_field: {0}'.format(errmsg))
+            return None
 
     def parse_datetime_field(self, value):
         if not isinstance(value, str):
