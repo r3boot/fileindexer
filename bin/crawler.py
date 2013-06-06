@@ -48,9 +48,10 @@ def crawler_task(logger, url):
         print(e)
         return
 
+    total_docs = 0
+    t_start = time.time()
     if r and r.status_code == 200:
         t_start = time.time()
-        total_docs = 0
         doc_incr = 0
         for raw_meta in r.content.split('\n'):
             if not '\t' in raw_meta:

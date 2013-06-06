@@ -1,4 +1,6 @@
 
+import pprint
+
 import pyes
 
 from fileindexer.constants import category_types
@@ -9,6 +11,7 @@ class ElasticSearchIndex:
         self.__ES_index_name = index_name
         self.__conn = None
         self.connect()
+        self.set_mapping()
         self.create_index()
 
     def connect(self):
@@ -20,6 +23,22 @@ class ElasticSearchIndex:
             self.__conn.indices.create_index(self.__ES_index_name)
         except pyes.exceptions.IndexAlreadyExistsException:
             pass
+
+    def set_mapping(self):
+        try:
+            raw_data = open('data/es_mapping.json', 'r').read()
+        except IOError, errmsg:
+            print('[E] Failed to open data/es_mapping.json: {0}'.format(errmsg))
+            return
+
+        try:
+            datamap = pyes.json.loads(raw_data)
+        except ValueError, errmsg:
+            print('[E] Failed to decode json: {0}'.format(errmsg))
+            return
+
+        pprint.pprint(datamap)
+        self.__conn.put_mapping('fi_doctype', {'properties': datamap}, [self.__ES_index_name])
 
     def index(self, meta):
         try:

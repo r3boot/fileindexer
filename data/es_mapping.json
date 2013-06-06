@@ -1,6 +1,32 @@
 {
 	"fileindexer": {
 		"fi_doctype": {
+            "_all": {
+                "enabled": true,
+                "store": "yes",
+                "term_vector": "no"
+            },
+            "_boost": {
+                "name": "_boost"
+            },
+            "_id": {
+                "store": "yes"
+            },
+            "_index": {
+                "enabled": false,
+                "store": "no"
+            },
+            "_source": {
+                "enabled": true,
+                "name": "_source"
+            },
+            "_type": {
+                "store": "yes"
+            },
+            "date_formats": [
+                "dateOptionalTime",
+                "yyyy/MM/dd HH:mm:ss||yyyy/MM/dd"
+            ],
 			"dynamic": true,
 			"enabled": true,
 			"path":    "full",
@@ -14,67 +40,67 @@
 							"index": "analyzed",
 							"boost": 1.0,
 							"store": "yes",
-							"type":  "string",
+							"type":  "string"
 						},
 						"artist": {
 							"index": "analyzed",
 							"boost": 1.0,
 							"store": "yes",
-							"type":  "string",
+							"type":  "string"
 						},
 						"band": {
 							"index": "analyzed",
 							"boost": 1.0,
 							"store": "yes",
-							"type":  "string",
+							"type":  "string"
 						},
 						"bitrate": {
 							"index": "analyzed",
 							"boost": 1.0,
 							"store": "yes",
-							"type":  "integer",
+							"type":  "integer"
 						},
 						"channels": {
 							"index": "analyzed",
 							"boost": 1.0,
 							"store": "yes",
-							"type":  "float",
+							"type":  "float"
 						},
 						"codec": {
 							"index": "analyzed",
 							"boost": 1.0,
 							"store": "yes",
-							"type":  "string",
+							"type":  "string"
 						},
 						"comment": {
 							"index": "analyzed",
 							"boost": 1.0,
 							"store": "yes",
-							"type":  "string",
+							"type":  "string"
 						},
 						"composer": {
 							"index": "analyzed",
 							"boost": 1.0,
 							"store": "yes",
-							"type":  "string",
+							"type":  "string"
 						},
 						"compression": {
 							"index": "analyzed",
 							"boost": 1.0,
 							"store": "yes",
-							"type":  "string",
+							"type":  "string"
 						},
 						"compression_rate": {
 							"index": "analyzed",
 							"boost": 1.0,
 							"store": "yes",
-							"type":  "integer",
+							"type":  "integer"
 						},
 						"duration": {
 							"index": "analyzed",
 							"boost": 1.0,
 							"store": "yes",
-							"type":  "float",
+							"type":  "float"
 						},
 						"genre": {
 							"dynamic": true,
@@ -85,67 +111,67 @@
 									"index": "analyzed",
 									"boost": 1.0,
 									"store": "yes",
-									"type":  "string",
-								},
+									"type":  "string"
+								}
 							},
-							"type": "nested",
+							"type": "nested"
 						},
 						"samplerate": {
 							"index": "analyzed",
 							"boost": 1.0,
 							"store": "yes",
-							"type":  "integer",
+							"type":  "integer"
 						},
 						"setno": {
 							"index": "analyzed",
 							"boost": 1.0,
 							"store": "yes",
-							"type":  "integer",
+							"type":  "integer"
 						},
 						"settot": {
 							"index": "analyzed",
 							"boost": 1.0,
 							"store": "yes",
-							"type":  "integer",
+							"type":  "integer"
 						},
 						"stereo": {
 							"index": "analyzed",
 							"boost": 1.0,
 							"store": "yes",
-							"type":  "boolean",
+							"type":  "boolean"
 						},
 						"trackno": {
 							"index": "analyzed",
 							"boost": 1.0,
 							"store": "yes",
-							"type":  "integer",
+							"type":  "integer"
 						},
 						"tracktot": {
 							"index": "analyzed",
 							"boost": 1.0,
 							"store": "yes",
-							"type":  "integer",
+							"type":  "integer"
 						},
 						"title": {
 							"index": "analyzed",
 							"boost": 1.0,
 							"store": "yes",
-							"type":  "string",
+							"type":  "string"
 						},
 						"vbr": {
 							"index": "analyzed",
 							"boost": 1.0,
 							"store": "yes",
-							"type":  "boolean",
-						},
+							"type":  "boolean"
+						}
 					},
-					"type": "nested",
+					"type": "nested"
 				},
 				"category": {
 					"index": "analyzed",
 					"boost": 1.0,
 					"store": "yes",
-					"type": "string",
+					"type": "string"
 				},
 				"episode": {
 					"dynamic": true,
@@ -156,20 +182,20 @@
 							"index": "analyzed",
 							"boost": 1.0,
 							"store": "yes",
-							"type":  "integer",
+							"type":  "integer"
 						},
 						"season": {
 							"index": "analyzed",
 							"boost": 1.0,
 							"store": "yes",
-							"type":  "integer",
+							"type":  "integer"
 						},
 						"series": {
 							"index": "analyzed",
 							"boost": 1.0,
 							"store": "yes",
-							"type":  "string",
-						},
+							"type":  "string"
+						}
 					},
 					"type": "object"
 				},
@@ -182,62 +208,62 @@
 							"index": "analyzed",
 							"boost": 1.0,
 							"store": "yes",
-							"type":  "date",
-						}
+							"type":  "date"
+						},
 						"checksum": {
 							"index": "analyzed",
 							"boost": 1.0,
 							"store": "yes",
-							"type": "string",
+							"type": "string"
 						},
 						"name": {
 							"index": "analyzed",
 							"boost": 1.0,
 							"store": "yes",
-							"type": "string",
+							"type": "string"
 						},
 						"type": {
 							"index": "analyzed",
 							"boost": 1.0,
 							"store": "yes",
-							"type":  "string",
+							"type":  "string"
 						},
 						"gid": {
 							"index": "analyzed",
 							"boost": 1.0,
 							"store": "yes",
-							"type":  "integer",
-						}
+							"type":  "integer"
+						},
 						"mime": {
 							"index": "analyzed",
 							"boost": 1.0,
 							"store": "yes",
-							"type":  "string",
+							"type":  "string"
 						},
 						"mode": {
 							"index": "analyzed",
 							"boost": 1.0,
 							"store": "yes",
-							"type":  "integer",
-						}
+							"type":  "integer"
+						},
 						"mtime": {
 							"index": "analyzed",
 							"boost": 1.0,
 							"store": "yes",
-							"type":  "date",
+							"type":  "date"
 						},
 						"size": {
 							"index": "analyzed",
 							"boost": 1.0,
 							"store": "yes",
-							"type":  "integer",
+							"type":  "integer"
 						},
 						"uid": {
 							"index": "analyzed",
 							"boost": 1.0,
 							"store": "yes",
-							"type":  "integer",
-						},
+							"type":  "integer"
+						}
 					},
 					"type": "object"
 				},
@@ -250,100 +276,100 @@
 							"index": "analyzed",
 							"boost": 1.0,
 							"store": "yes",
-							"type":  "float",
+							"type":  "float"
 						},
 						"brightness": {
 							"index": "analyzed",
 							"boost": 1.0,
 							"store": "yes",
-							"type":  "integer",
+							"type":  "integer"
 						},
 						"colorspace": {
 							"index": "analyzed",
 							"boost": 1.0,
 							"store": "yes",
-							"type":  "string",
+							"type":  "string"
 						},
 						"contrast": {
 							"index": "analyzed",
 							"boost": 1.0,
 							"store": "yes",
-							"type":  "float",
+							"type":  "float"
 						},
 						"comment": {
 							"index": "analyzed",
 							"boost": 1.0,
 							"store": "yes",
-							"type":  "string",
+							"type":  "string"
 						},
 						"compression": {
 							"index": "analyzed",
 							"boost": 1.0,
 							"store": "yes",
-							"type":  "string",
+							"type":  "string"
 						},
 						"compression_rate": {
 							"index": "analyzed",
 							"boost": 1.0,
 							"store": "yes",
-							"type":  "integer",
+							"type":  "integer"
 						},
 						"date": {
 							"index": "analyzed",
 							"boost": 1.0,
 							"store": "yes",
-							"type":  "date",
+							"type":  "date"
 						},
 						"endianness": {
 							"index": "analyzed",
 							"boost": 1.0,
 							"store": "yes",
-							"type":  "string",
+							"type":  "string"
 						},
 						"format": {
 							"index": "analyzed",
 							"boost": 1.0,
 							"store": "yes",
-							"type":  "string",
+							"type":  "string"
 						},
 						"height": {
 							"index": "analyzed",
 							"boost": 1.0,
 							"store": "yes",
-							"type":  "integer",
+							"type":  "integer"
 						},
 						"height_dpi": {
 							"index": "analyzed",
 							"boost": 1.0,
 							"store": "yes",
-							"type":  "integer",
+							"type":  "integer"
 						},
 						"orientation": {
 							"index": "analyzed",
 							"boost": 1.0,
 							"store": "yes",
-							"type":  "string",
+							"type":  "string"
 						},
 						"software": {
 							"index": "analyzed",
 							"boost": 1.0,
 							"store": "yes",
-							"type":  "string",
+							"type":  "string"
 						},
 						"width": {
 							"index": "analyzed",
 							"boost": 1.0,
 							"store": "yes",
-							"type":  "integer",
+							"type":  "integer"
 						},
 						"width_dpi": {
 							"index": "analyzed",
 							"boost": 1.0,
 							"store": "yes",
-							"type":  "integer",
-						},
+							"type":  "integer"
+						}
 					},
-					"type": "object",
+					"type": "object"
 				},
 				"movie": {
 					"dynamic": true,
@@ -354,10 +380,10 @@
 							"index": "analyzed",
 							"boost": 1.0,
 							"store": "yes",
-							"type":  "string",
-						},
+							"type":  "string"
+						}
 					},
-					"type": "object",
+					"type": "object"
 				},
 				"release": {
 					"dynamic": true,
@@ -368,50 +394,50 @@
 							"index": "analyzed",
 							"boost": 1.0,
 							"store": "yes",
-							"type":  "string",
+							"type":  "string"
 						},
 						"date": {
 							"index": "analyzed",
 							"boost": 1.0,
 							"store": "yes",
-							"type":  "date",
+							"type":  "date"
 						},
 						"discno": {
 							"index": "analyzed",
 							"boost": 1.0,
 							"store": "yes",
-							"type":  "integer",
+							"type":  "integer"
 						},
 						"disctot": {
 							"index": "analyzed",
 							"boost": 1.0,
 							"store": "yes",
-							"type":  "integer",
+							"type":  "integer"
 						},
 						"format": {
 							"index": "analyzed",
 							"boost": 1.0,
 							"store": "yes",
-							"type":  "string",
+							"type":  "string"
 						},
 						"group": {
 							"index": "analyzed",
 							"boost": 1.0,
 							"store": "yes",
-							"type":  "string",
+							"type":  "string"
 						},
 						"label": {
 							"index": "analyzed",
 							"boost": 1.0,
 							"store": "yes",
-							"type":  "string",
+							"type":  "string"
 						},
 						"name": {
 							"index": "analyzed",
 							"boost": 1.0,
 							"store": "yes",
-							"type":  "string",
-						},
+							"type":  "string"
+						}
 					},
 					"type": "object"
 				},
@@ -419,7 +445,7 @@
 					"index": "analyzed",
 					"boost": 1.0,
 					"store": "yes",
-					"type":  "string",
+					"type":  "string"
 				},
 				"video": {
 					"dynamic": true,
@@ -430,382 +456,93 @@
 							"index": "analyzed",
 							"boost": 1.0,
 							"store": "yes",
-							"type":  "string",
+							"type":  "string"
 						},
 						"bitrate": {
 							"index": "analyzed",
 							"boost": 1.0,
 							"store": "yes",
-							"type":  "integer",
+							"type":  "integer"
 						},
 						"codec": {
 							"index": "analyzed",
 							"boost": 1.0,
 							"store": "yes",
-							"type":  "string",
+							"type":  "string"
 						},
 						"container": {
 							"index": "analyzed",
 							"boost": 1.0,
 							"store": "yes",
-							"type":  "string",
+							"type":  "string"
 						},
 						"format": {
 							"index": "analyzed",
 							"boost": 1.0,
 							"store": "yes",
-							"type":  "string",
+							"type":  "string"
 						},
 						"fps": {
 							"index": "analyzed",
 							"boost": 1.0,
 							"store": "yes",
-							"type":  "float",
+							"type":  "float"
 						},
 						"hd": {
 							"index": "analyzed",
 							"boost": 1.0,
 							"store": "yes",
-							"type":  "boolean",
-						}
+							"type":  "boolean"
+						},
 						"height": {
 							"index": "analyzed",
 							"boost": 1.0,
 							"store": "yes",
-							"type":  "integer",
+							"type":  "integer"
 						},
 						"language": {
 							"index": "analyzed",
 							"boost": 1.0,
 							"store": "yes",
-							"type":  "string",
+							"type":  "string"
 						},
 						"length": {
 							"index": "analyzed",
 							"boost": 1.0,
 							"store": "yes",
-							"type":  "float",
+							"type":  "float"
 						},
 						"stream_id": {
 							"index": "analyzed",
 							"boost": 1.0,
 							"store": "yes",
-							"type":  "integer",
+							"type":  "integer"
 						},
 						"title": {
 							"index": "analyzed",
 							"boost": 1.0,
 							"store": "yes",
-							"type":  "string",
+							"type":  "string"
 						},
 						"trackno": {
 							"index": "analyzed",
 							"boost": 1.0,
 							"store": "yes",
-							"type":  "integer",
+							"type":  "integer"
 						},
 						"width": {
 							"index": "analyzed",
 							"boost": 1.0,
 							"store": "yes",
-							"type":  "integer",
+							"type":  "integer"
 						},
-						"type": "nested",
-					},
+						"type": "nested"
+					}
 					
-				},
-			}
+				}
+			},
 			"type": "object"
 		},
+        "type": "object"
 	}
 }
-
-3125 img.date
-3078 img.orientation
-3009 img.colorspace
-2853 img.software
-2431 duration
-2423 artists
-2145 type
-2130 episode.series
-2062 length
-2024 video.0.codec
-2022 audio.0.codec
-1990 episode.nr
-1943 video.format
-1865 disc
-1858 disc.format
-1808 img.positioning
-1787 img.exif_version
-1760 audio.0.samplerate
-1755 audio.0.channels
-1685 track.bpm
-1645 img.device_model
-1643 img.device_vendor
-1618 episode.season
-1590 img.components_config
-1580 img.flashpix_version
-1523 img.date.original
-1506 video.0.width
-1506 video.0.height
-1503 video.0.language
-1503 audio.0.language
-1401 timestamp
-1377 img.date.digitized
-1329 img.flash
-1328 img.fnumber
-1322 img.exposure.time
-1251 img.focal.length
-1237 img.whitebalance
-1237 img.metering_mode
-1199 date
-1195 img.exposure.mode
-1194 img.scene.capture_type
-1119 video.0.fps
-1107 video.0.trackno
-1107 audio.0.trackno
-1091 video.0.aspect
-1082 img.exposure.bias
-1044 img.file_source
-1018 img.apeture.max
-1014 release.medium
-993 img.iso_speed_rating
-975 copyright
-928 release.other
-896 subtitles.0.trackno
-896 subtitles.0.language
-896 subtitles.0.codec
-865 img.zoom_ratio
-857 ensemble
-842 img.exposure.program
-823 hd
-782 disc.total
-756 img.sensing_mode
-748 img.light_source
-728 description
-703 img.apeture
-699 img.shutter.speed
-689 img.sharpness
-679 audio.1.trackno
-679 audio.1.samplerate
-679 audio.1.language
-679 audio.1.codec
-677 audio.1.channels
-670 disc.nr
-661 img.saturation
-641 img.scene.type
-616 accuraterip.id
-616 accuraterip.crc
-498 img.contrast
-474 chapters.0.name
-463 compilation
-445 release.isrc
-422 subtitles.0.title
-421 img.subject.distance.range
-407 img.focal.length.35mm
-383 video.0.length
-383 audio.0.length
-350 release.catalognr
-328 artist.orig
-326 audio.0.title
-320 chapters.1.name
-310 subtitles.1.trackno
-310 subtitles.1.language
-310 subtitles.1.codec
-278 release.country
-261 chapters.2.name
-258 chapters.3.name
-256 subtitles.1.title
-250 audio.1.title
-237 img.producer
-215 video.0.title
-214 chapters.4.name
-206 musicbrainz.album.id
-194 musicbrainz.track.id
-194 musicbrainz.artist.id
-171 release.type
-170 img.subject.distance
-164 release.status
-163 style
-141 chapters.5.name
-132 barcode
-131 endianness
-124 img.city
-113 chapters.6.name
-108 gracenote.fileid
-108 gracenote.extdata
-69 format.version
-61 width
-61 height
-57 Last modification
-57 compression
-52 chapters.7.name
-52 bits_per_pixel
-47 subtitles.2.trackno
-47 subtitles.2.language
-47 subtitles.2.codec
-41 subtitles.3.trackno
-41 subtitles.3.language
-41 subtitles.3.codec
-41 img.brightness
-41 format
-40 img.Image orientation
-39 producer
-30 releaser
-26 author
-23 chapters.8.name
-18 corrupt
-18 audio.2.trackno
-18 audio.2.samplerate
-18 audio.2.language
-18 audio.2.codec
-18 audio.2.channels
-17 chapters.9.name
-16 audio.0.samplebits
-16 audio.0.bitrate
-15 video.0.bitrate
-15 chapters.12.name
-15 chapters.11.name
-15 chapters.10.name
-12 chapters.14.name
-12 chapters.13.name
-11 compression.rate
-11 chapters.15.name
-10 width.dpi
-9 video_format
-9 height.dpi
-9 chapters.16.name
-9 audio.2.title
-9 aspect_ratio
-8 subtitles.2.title
-8 chapters.19.name
-8 chapters.18.name
-8 chapters.17.name
-7 img.camera.model
-7 img.camera.manufacturer
-7 chapters.21.name
-7 chapters.20.name
-6 subtitles.4.trackno
-6 subtitles.4.language
-6 subtitles.4.codec
-6 chapters.23.name
-6 chapters.22.name
-5 chapters.28.name
-5 chapters.27.name
-5 chapters.26.name
-5 chapters.25.name
-5 chapters.24.name
-4 video.endianness
-4 subtitles.5.trackno
-4 subtitles.5.language
-4 subtitles.5.codec
-4 chapters.33.name
-4 chapters.32.name
-4 chapters.31.name
-4 chapters.30.name
-4 chapters.29.name
-3 video.width
-3 video.vbr
-3 video.height
-3 video.duration
-3 video.compression
-3 video.comment
-3 video.bits_per_pixel
-3 video.bitrate
-3 subtitles.3.title
-3 audio.stereo
-3 audio.samplerate
-3 audio.compression
-3 audio.channel
-2 video.producer
-2 video.framerate
-2 video.1.width
-2 video.1.height
-2 video.1.fps
-2 video.1.codec
-2 video.1.bitrate
-2 subtitles.6.trackno
-2 subtitles.6.language
-2 subtitles.6.codec
-2 subtitles.4.title
-2 chapters.44.name
-2 chapters.43.name
-2 chapters.42.name
-2 chapters.41.name
-2 chapters.40.name
-2 chapters.39.name
-2 chapters.38.name
-2 chapters.37.name
-2 chapters.36.name
-2 chapters.35.name
-2 chapters.34.name
-2 audio.vbr
-2 audio.duration
-2 audio.compression.rate
-2 audio.bitrate
-2 audio.3.trackno
-2 audio.3.title
-2 audio.3.samplerate
-2 audio.3.language
-2 audio.3.codec
-2 audio.3.channels
-1 video.title
-1 video.date
-1 video.author
-1 video.1.language
-1 subtitles.9.trackno
-1 subtitles.9.language
-1 subtitles.9.codec
-1 subtitles.8.trackno
-1 subtitles.8.language
-1 subtitles.8.codec
-1 subtitles.7.trackno
-1 subtitles.7.language
-1 subtitles.7.codec
-1 subtitles.20.trackno
-1 subtitles.20.language
-1 subtitles.20.codec
-1 subtitles.19.trackno
-1 subtitles.19.language
-1 subtitles.19.codec
-1 subtitles.18.trackno
-1 subtitles.18.title
-1 subtitles.18.language
-1 subtitles.18.codec
-1 subtitles.17.trackno
-1 subtitles.17.language
-1 subtitles.17.codec
-1 subtitles.16.trackno
-1 subtitles.16.language
-1 subtitles.16.codec
-1 subtitles.15.trackno
-1 subtitles.15.language
-1 subtitles.15.codec
-1 subtitles.14.trackno
-1 subtitles.14.language
-1 subtitles.14.codec
-1 subtitles.13.trackno
-1 subtitles.13.title
-1 subtitles.13.language
-1 subtitles.13.codec
-1 subtitles.12.trackno
-1 subtitles.12.language
-1 subtitles.12.codec
-1 subtitles.11.trackno
-1 subtitles.11.language
-1 subtitles.11.codec
-1 subtitles.10.trackno
-1 subtitles.10.language
-1 subtitles.10.codec
-1 img.author
-1 chapters.54.name
-1 chapters.53.name
-1 chapters.52.name
-1 chapters.51.name
-1 chapters.50.name
-1 chapters.49.name
-1 chapters.48.name
-1 chapters.47.name
-1 chapters.46.name
-1 chapters.45.name
-1 audio.bits_per_sample
